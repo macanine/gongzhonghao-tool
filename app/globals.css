@@ -98,14 +98,14 @@ h1, h2, p { margin-top: 0; }
 .control-section { padding: 0 0 20px; margin: 0 0 20px; border-bottom: 1px solid var(--line); }
 .control-section:last-child { border-bottom: 0; margin-bottom: 0; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; min-height: 24px; margin-bottom: 12px; font-weight: 700; font-size: 13px; }
+.section-note-inline { color: var(--faint); font-size: 11px; font-weight: 600; }
 .count-badge { min-width: 22px; height: 22px; display: grid; place-items: center; padding: 0 6px; border-radius: 99px; background: var(--panel); color: var(--muted); font-size: 11px; font-weight: 700; }
 .section-note { margin: -6px 0 12px; color: var(--faint); font-size: 11px; line-height: 1.5; }
 
-.upload-zone { display: grid; gap: 5px; justify-items: center; padding: 17px 12px; border: 1px dashed var(--line-strong); background: var(--panel); color: var(--ink); border-radius: 5px; transition: border-color .16s, background .16s; cursor: pointer; }
+.upload-zone { width: 100%; display: grid; gap: 5px; justify-items: center; padding: 17px 12px; border: 1px dashed var(--line-strong); background: var(--panel); color: var(--ink); border-radius: 5px; transition: border-color .16s, background .16s; cursor: pointer; }
 .upload-zone svg { color: var(--accent); }
 .upload-zone span { font-size: 13px; font-weight: 600; }
 .upload-zone:hover, .upload-zone.is-dragover { border-color: var(--accent); background: var(--accent-soft); }
-.upload-zone.is-disabled { pointer-events: none; opacity: .5; }
 
 .field { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; min-width: 0; }
 .field > span { display: flex; justify-content: space-between; gap: 5px; color: var(--muted); font-size: 11px; }
@@ -149,6 +149,7 @@ input[type="range"] { width: 100%; margin: 2px 0 0; accent-color: var(--accent);
 .palette-chip::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: 7px; height: 3px; border-radius: 2px; background: var(--chip-accent); }
 .palette-chip:hover { transform: translateY(-1px); box-shadow: var(--small-shadow); }
 .palette-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.palette-chip.is-active { border-color: var(--ink); box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
 
 /* ---------- 04 PDF 页列表 ---------- */
 .page-list { display: grid; gap: 7px; margin-top: 10px; }
@@ -169,7 +170,7 @@ input[type="range"] { width: 100%; margin: 2px 0 0; accent-color: var(--accent);
 .row-icon-button:hover { color: var(--danger); background: #faeeec; }
 
 /* ---------- 05 文章预览 ---------- */
-.preview-column, .cover-canvas-column { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--canvas); }
+.preview-column, .canvas-column { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--canvas); }
 .column-toolbar { min-height: 76px; display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: rgba(255, 255, 255, .72); border-bottom: 1px solid var(--line); }
 .eyebrow { margin: 0 0 3px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .column-toolbar h1 { margin: 0; font-size: 17px; }
@@ -245,7 +246,7 @@ input[type="range"] { width: 100%; margin: 2px 0 0; accent-color: var(--accent);
   .rail-scroll { height: auto; max-height: none; padding: 14px; overflow: visible; }
   .article-rail .control-section:first-child { padding-bottom: 14px; }
   .page-list { max-height: 190px; overflow-y: auto; }
-  .preview-column, .cover-canvas-column { min-height: calc(100vh - 56px); }
+  .preview-column, .canvas-column { min-height: calc(100vh - 56px); }
   .column-toolbar { min-height: 66px; padding: 13px 16px; }
   .preview-scroll { padding: 16px 10px 40px; }
   .article-preview { padding: 14px; }
