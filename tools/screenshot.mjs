@@ -2,19 +2,18 @@
  * 用本机缓存的 chrome-headless-shell 给三个标签页各截一张图。
  *
  * 不依赖 playwright：Node 22 自带 WebSocket，直接讲 DevTools 协议，
- * 顺带起一个极小的静态服务器把 out/ 端出去。
+ * 顺带启动本地 Next.js 生产服务器。
  *
  * 用法：node tools/screenshot.mjs [输出目录]
  */
 import { spawn } from 'node:child_process';
-import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const OUT = join(ROOT, 'out');
 const TARGET = process.argv[2] ?? '/tmp/gzhelper-shots';
+const PORT = Number(process.env.SCREENSHOT_PORT ?? 3471);
 
 const CHROME_CANDIDATES = [
   process.env.CHROME_BIN,
@@ -27,45 +26,32 @@ if (!chromeBin) {
   console.error('找不到可用的无头浏览器，可用 CHROME_BIN 指定');
   process.exit(1);
 }
-if (!existsSync(OUT)) {
-  console.error('先跑 npm run build 生成 out/');
+if (!existsSync(join(ROOT, '.next'))) {
+  console.error('先跑 npm run build 生成 .next/');
   process.exit(1);
 }
 
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.json': 'application/json',
-  '.txt': 'text/plain; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.woff2': 'font/woff2',
-};
-
-/* ---------- 极简静态服务器 ---------- */
-const server = createServer(async (req, res) => {
-  const url = (req.url ?? '/').split('?')[0];
-  let file = normalize(join(OUT, decodeURIComponent(url)));
-  if (!file.startsWith(OUT)) {
-    res.writeHead(403).end();
-    return;
-  }
-  try {
-    let body = await readFile(file).catch(async () => {
-      file = join(OUT, 'index.html');
-      return readFile(file);
-    });
-    res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
-    res.end(body);
-  } catch {
-    res.writeHead(404).end('not found');
-  }
+/* ---------- 启动 Next.js 生产服务器 ---------- */
+const nextServer = spawn('npm', ['run', 'start', '--', '--port', String(PORT)], {
+  cwd: ROOT,
+  stdio: 'ignore',
 });
+const origin = `http://127.0.0.1:${PORT}`;
 
-await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const origin = `http://127.0.0.1:${server.address().port}`;
+async function waitForServer() {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try {
+      const response = await fetch(origin);
+      if (response.ok) return;
+    } catch {
+      /* 还没起来 */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error('Next.js 生产服务器没能在超时前启动');
+}
+
+await waitForServer();
 
 /* ---------- 启动浏览器 ---------- */
 const debugPort = 9333;
@@ -185,5 +171,5 @@ try {
 } finally {
   socket.close();
   chrome.kill();
-  server.close();
+  nextServer.kill();
 }

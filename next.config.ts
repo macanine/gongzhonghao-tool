@@ -1,12 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // PDF 解析、画布渲染、打包全部在浏览器里完成，没有任何服务端逻辑，
-  // 所以直接导出静态站点：既能 `npm run build` 出纯静态文件，也保住了
-  // 「文件不离开这台机器」的隐私前提。
-  output: 'export',
+  // 交给 Vercel 原生 Next.js 构建器管理 `.next` 产物，避免手动指定
+  // `out` 后触发 routes-manifest 路径冲突。应用仍然是本地浏览器工具，
+  // 不会上传用户导入的 PDF。
   reactStrictMode: true,
-  images: { unoptimized: true },
 };
 
 export default nextConfig;

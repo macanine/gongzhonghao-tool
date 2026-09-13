@@ -16,7 +16,7 @@
 ## 技术特点
 
 - Next.js 16 App Router + React 19 + TypeScript
-- 静态导出，可部署到 GitHub Pages、Vercel、对象存储或内网服务器
+- Vercel 原生 Next.js 构建，使用标准 `.next` 产物部署
 - Radix UI Dialog 提供移动端菜单与弹层交互
 - Lucide React 提供统一图标系统
 - pdf.js 负责 PDF 解析与页面渲染
@@ -31,23 +31,23 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
-出静态站点：
+构建并启动生产版本：
 
 ```bash
-npm run build        # 产物在 out/，是纯静态文件
-npm run preview      # 本地起个静态服务器预览 out/
+npm run build        # 生成 Next.js 生产构建
+npm run start        # 本地启动生产服务器
 ```
 
-> 别用 `file://` 直接打开 `out/index.html`——pdf.js 的 worker 会被 CORS 拦住。
-> 用 `npm run dev` 或 `npm run preview`。
+开发时使用 `npm run dev`，生产构建后使用 `npm run start`。
 
 ## 常用命令
 
 | 命令 | 作用 |
 | --- | --- |
 | `npm run dev` | 开发服务器 |
-| `npm run build` | 静态导出到 `out/` |
-| `npm run preview` | 预览静态产物 |
+| `npm run build` | 生成 Next.js 生产构建 |
+| `npm run start` | 启动生产构建 |
+| `npm run preview` | `npm run start` 的兼容别名 |
 | `npm test` | 单元测试（vitest） |
 | `npm run typecheck` | 类型检查 |
 | `node tools/screenshot.mjs [目录]` | 无头浏览器给三个页面截图 |
@@ -55,7 +55,7 @@ npm run preview      # 本地起个静态服务器预览 out/
 ## 代码结构
 
 ```
-app/                 Next.js App Router（静态导出，无服务端）
+app/                 Next.js App Router（Vercel 原生部署）
   layout.tsx         根布局与 metadata
   page.tsx           入口
   globals.css        全局设计令牌、工作区布局与响应式样式
@@ -77,7 +77,7 @@ lib/                 与框架无关的核心逻辑，可直接单元测试
 
 components/          React 组件（只负责把状态接到 UI 上）
 tests/               vitest 测试
-tools/screenshot.mjs 无头截图脚本
+tools/screenshot.mjs 无头浏览器截图脚本
 ```
 
 设计上的一条线：**`lib/` 里不出现 React，组件里不出现画布数学**。
@@ -98,10 +98,9 @@ tools/screenshot.mjs 无头截图脚本
 
 ## 部署
 
-`npm run build` 出来的 `out/` 是纯静态文件，扔到任意静态托管即可
-（Vercel / GitHub Pages / 对象存储 / 内网 nginx）。
-没有服务端，没有环境变量，没有数据库。
+项目使用 Vercel 原生 Next.js 部署，构建产物由 Next.js 管理在 `.next/` 中。
+没有自定义服务端逻辑、环境变量、数据库或文件上传服务。
 
 在 Vercel 上直接选择 Next.js 项目即可。仓库里的 `vercel.json` 只声明
-Next.js 框架，不覆盖 Output Directory；Vercel 会根据 Next.js 配置自动处理
-构建产物。若在 Vercel 项目设置中手动填写过 Output Directory，请保持为空。
+Next.js 框架，不覆盖 Build Command 或 Output Directory。Vercel 项目设置中
+`Output Directory` 必须保持为空，不能填写 `out` 或 `.next`。
