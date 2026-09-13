@@ -34,15 +34,14 @@ export function toast(message: string, error = false): void {
   }, 3300);
 }
 
+/** 订阅函数恒定不变，免得每次渲染都让 useSyncExternalStore 重新订阅一遍。 */
+const subscribeToast = (listener: () => void) => {
+  toastListeners.add(listener);
+  return () => void toastListeners.delete(listener);
+};
+
 export function useToast(): ToastState | null {
-  return useSyncExternalStore(
-    (listener) => {
-      toastListeners.add(listener);
-      return () => toastListeners.delete(listener);
-    },
-    () => toastState,
-    () => null,
-  );
+  return useSyncExternalStore(subscribeToast, () => toastState, () => null);
 }
 
 /* ---------------- 任务浮层 ---------------- */
@@ -60,7 +59,7 @@ const emitJob = () => jobListeners.forEach((listener) => listener());
 
 function subscribeJob(listener: () => void) {
   jobListeners.add(listener);
-  return () => jobListeners.delete(listener);
+  return () => void jobListeners.delete(listener);
 }
 
 export function useJob(): JobState | null {

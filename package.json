@@ -1,5 +1,5 @@
 {
-  "name": "gzhelper",
+  "name": "gongzhonghao-tool",
   "version": "2.0.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.23",
     "jszip": "3.10.2",
+    "lucide-react": "^1.45.0",
     "next": "16.3.5",
     "pdfjs-dist": "6.3.289",
     "react": "19.3.0",

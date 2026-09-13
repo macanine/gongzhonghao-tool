@@ -7,7 +7,7 @@
  * 更新就是整体替换，几十行就够，也不用把 provider 铺满组件树。
  */
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { BackdropImage } from './canvas/backdrop';
 import {
   CONFIG_VERSION,
@@ -46,12 +46,19 @@ export const subscribe = (listener: () => void) => {
 
 export const getState = (): StoreState => state;
 
-/** 服务端预渲染时只能用默认值，客户端首帧与之保持一致后再读本地存储。 */
-const getServerState = (): StoreState => ({
-  settings: DEFAULT_SETTINGS,
+/**
+ * 服务端预渲染时只能用默认值，客户端首帧与之保持一致后再读本地存储。
+ *
+ * 这里必须是个常量：useSyncExternalStore 每次渲染都会拿它和上一次的结果比
+ * 引用，返回新对象会被当成「数据一直在变」，直接无限重渲染。
+ */
+const serverState: StoreState = {
+  settings: structuredClone(DEFAULT_SETTINGS),
   images: { header: null, cover: null },
   pageCount: 0,
-});
+};
+
+const getServerState = (): StoreState => serverState;
 
 function persist(): void {
   try {
@@ -107,12 +114,49 @@ export function setPageCount(pageCount: number): void {
   emit();
 }
 
-export function useStore(): StoreState {
-  return useSyncExternalStore(subscribe, getState, getServerState);
+/**
+ * 订阅 store 的一个切片。
+ *
+ * selector 要直接取自 state 上的字段（`(s) => s.settings.header`），这样
+ * 值只在相关字段变化时才换引用，React 自会跳过多余的重渲染——改水印不会
+ * 重画头图、改页数不会重排面板，靠的都是这一条。
+ *
+ * 注意别在 selector 里新建对象（`(s) => ({ a: s.a })`）：那样每次取值都是
+ * 新引用，等于永远「有变化」，正是上面那个报错的成因。
+ */
+export function useStore<T>(selector: (state: StoreState) => T): T {
+  // 缓存是 useSyncExternalStore 的硬要求：数据没变时必须返回同一个引用。
+  // 客户端快照与服务端快照是两个不同的对象，各自留一份槽位。
+  const client = useRef<Selection<T> | null>(null);
+  const server = useRef<Selection<T> | null>(null);
+
+  return useSyncExternalStore(
+    subscribe,
+    () => select(client, getState(), selector),
+    () => select(server, getServerState(), selector),
+  );
+}
+
+interface Selection<T> {
+  source: StoreState;
+  pick: (state: StoreState) => T;
+  value: T;
+}
+
+function select<T>(
+  slot: { current: Selection<T> | null },
+  source: StoreState,
+  pick: (state: StoreState) => T,
+): T {
+  const cached = slot.current;
+  if (cached && cached.source === source && cached.pick === pick) return cached.value;
+  const value = pick(source);
+  slot.current = { source, pick, value };
+  return value;
 }
 
 export function useSettings(): Settings {
-  return useStore().settings;
+  return useStore((state) => state.settings);
 }
 
 /**

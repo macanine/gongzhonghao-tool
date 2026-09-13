@@ -2,27 +2,60 @@
 
 /** 一组共用的表单控件与图标，统一各面板的观感。 */
 
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Copy,
+  Download,
+  RefreshCcw,
+  Upload,
+  X,
+  type LucideProps,
+} from 'lucide-react';
 import { PALETTES, matchedPalette, type Palette } from '@/lib/palettes';
 import type { Backdrop } from '@/lib/settings';
 
 export function Icon({ path, viewBox = '0 0 24 24' }: { path: string; viewBox?: string }) {
+  const IconComponent = iconForPath(path);
+  if (IconComponent) return <IconComponent aria-hidden="true" />;
   return (
-    <svg viewBox={viewBox} aria-hidden="true">
+    <svg viewBox={viewBox} aria-hidden="true" focusable="false">
       <path d={path} />
     </svg>
   );
 }
 
 export const ICONS = {
-  upload: 'M12 16V3m0 0L8 7m4-4 4 4M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5',
-  download: 'M12 3v12m0 0 4-4m-4 4-4-4M5 21h14',
-  copy: 'M8 8h12v12H8zM16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2',
-  reset: 'M4 12a8 8 0 1 0 2.3-5.6L4 8.7M4 4v4.7h4.7',
-  importConfig: 'M12 3v12m0 0 4-4m-4 4-4-4M5 21h14',
-  exportConfig: 'M12 15V3m0 0 4 4m-4-4-4 4M5 21h14',
-  close: 'M5 5l14 14M19 5 5 19',
+  upload: 'ui-upload',
+  download: 'ui-download',
+  copy: 'ui-copy',
+  reset: 'ui-reset',
+  importConfig: 'ui-import',
+  exportConfig: 'ui-export',
+  close: 'ui-close',
 } as const;
+
+function iconForPath(path: string): ComponentType<LucideProps> | null {
+  switch (path) {
+    case ICONS.upload:
+      return Upload;
+    case ICONS.download:
+      return Download;
+    case ICONS.copy:
+      return Copy;
+    case ICONS.reset:
+      return RefreshCcw;
+    case ICONS.importConfig:
+      return ArrowDownToLine;
+    case ICONS.exportConfig:
+      return ArrowUpFromLine;
+    case ICONS.close:
+      return X;
+    default:
+      return null;
+  }
+}
 
 export function Field({
   label,

@@ -16,31 +16,34 @@ import { useCanvasRenderer, useStore, type PosterKind } from '@/lib/store';
  */
 export function usePoster(kind: PosterKind) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { settings, images, pageCount } = useStore();
-  const image = images[kind];
+  // 只订阅参与绘制的那几份数据：改水印、或改另一张图的设置，都不该重画这里。
+  const headerStyle = useStore((state) => state.settings.header);
+  const headerContent = useStore((state) => state.settings.article.header);
+  const coverStyle = useStore((state) => state.settings.cover);
+  const image = useStore((state) => state.images[kind]);
+  const pageCount = useStore((state) => state.pageCount);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     if (kind === 'header') {
-      renderHeader(canvas, {
-        style: settings.header,
-        content: settings.article.header,
-        pageCount,
-        image: images.header,
-      });
+      renderHeader(canvas, { style: headerStyle, content: headerContent, pageCount, image });
     } else {
       renderCover(canvas, {
-        style: settings.cover,
-        content: { title: settings.cover.title, subtitle: settings.cover.subtitle },
-        image: images.cover,
+        style: coverStyle,
+        content: { title: coverStyle.title, subtitle: coverStyle.subtitle },
+        image,
       });
     }
-  }, [kind, settings, images, pageCount]);
+  }, [kind, headerStyle, headerContent, coverStyle, pageCount, image]);
 
-  useCanvasRenderer(draw, [kind, settings, image, pageCount]);
+  // 依赖按 kind 各列各的，否则头图设置一变、封面画布也会跟着重画一遍。
+  useCanvasRenderer(
+    draw,
+    kind === 'header' ? [headerStyle, headerContent, pageCount, image] : [coverStyle, image],
+  );
 
-  const size = kind === 'header' ? headerSize(settings.header) : coverSize(settings.cover);
+  const size = kind === 'header' ? headerSize(headerStyle) : coverSize(coverStyle);
   const label = kind === 'header' ? '头图' : '封面';
 
   const toBlob = useCallback(async () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { WatermarkSettings } from '@/lib/settings';
 import { renderPage } from '@/lib/article/pdf';
@@ -8,24 +8,28 @@ import { serialize } from '@/lib/article/queue';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
 
+interface LazyPageProps {
+  doc: PDFDocumentProxy;
+  pageNumber: number;
+  aspect: number;
+  watermark: WatermarkSettings;
+}
+
 /**
  * 一页预览。
  *
  * 用 IntersectionObserver 做懒加载：进入视口前不渲染，离开后再进来也不会重排，
  * 因为结果以 blob URL 的形式留着。「什么时候渲染」由这一页自己决定，
  * 不需要一个全局的队列管理器。
+ *
+ * 外面套 memo：面板里改水印以外的东西时，几十个页面不必跟着重渲染。
  */
-export function LazyPage({
+export const LazyPage = memo(function LazyPage({
   doc,
   pageNumber,
   aspect,
   watermark,
-}: {
-  doc: PDFDocumentProxy;
-  pageNumber: number;
-  aspect: number;
-  watermark: WatermarkSettings;
-}) {
+}: LazyPageProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
@@ -100,4 +104,4 @@ export function LazyPage({
       {url ? <img src={url} alt={`第 ${pageNumber} 页`} draggable={false} /> : null}
     </div>
   );
-}
+});

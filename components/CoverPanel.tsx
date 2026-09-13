@@ -6,7 +6,7 @@ import { usePoster } from './usePoster';
 import { Field, PrimaryButton, SecondaryButton, ICONS } from './ui';
 
 export function CoverPanel() {
-  const cover = useStore().settings.cover;
+  const cover = useStore((state) => state.settings.cover);
   const { canvasRef, size, download, copy } = usePoster('cover');
   const set = (patch: Partial<{ title: string; subtitle: string }>) =>
     patchSettings({ cover: patch });

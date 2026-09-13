@@ -7,8 +7,10 @@ import { usePoster } from './usePoster';
 import { Field, FieldGrid, PrimaryButton, SecondaryButton, Switch, ICONS, Icon } from './ui';
 
 export function HeaderPanel() {
-  const { settings, pageCount } = useStore();
-  const content = settings.article.header;
+  const content = useStore((state) => state.settings.article.header);
+  const ratio = useStore((state) => state.settings.header.ratio);
+  const coverStyle = useStore((state) => state.settings.cover);
+  const pageCount = useStore((state) => state.pageCount);
   const { canvasRef, size, download, copy } = usePoster('header');
 
   const set = (patch: Partial<HeaderContent>) =>
@@ -91,7 +93,7 @@ export function HeaderPanel() {
             <h1>试卷信息头图</h1>
           </div>
           <span className="status-dot is-ready">
-            {size.width} × {size.height} px · {settings.header.ratio}
+            {size.width} × {size.height} px · {ratio}
           </span>
         </div>
         <div className="canvas-wrap header-canvas-wrap">
@@ -113,7 +115,7 @@ export function HeaderPanel() {
           <button
             className="text-button"
             type="button"
-            onClick={() => patchSettings({ header: backdropOf(settings.cover) })}
+            onClick={() => patchSettings({ header: backdropOf(coverStyle) })}
           >
             <Icon path={ICONS.reset} /> 用封面配色
           </button>

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { FileText, Image, Menu, Palette, RotateCcw, Settings2, X } from 'lucide-react';
 import { cancelJob, toast } from '@/lib/feedback';
 import { migrateSettings, CONFIG_VERSION, type Settings } from '@/lib/settings';
 import { hydrate, replaceSettings, resetSettings, useSettings } from '@/lib/store';
@@ -19,8 +21,11 @@ const TABS: { value: Mode; label: string }[] = [
   { value: 'cover', label: '封面' },
 ];
 
+const TAB_ICONS = { article: FileText, header: Image, cover: Palette } as const;
+
 export function Workbench() {
   const [mode, setMode] = useState<Mode>('article');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const settings = useSettings();
   const configInput = useRef<HTMLInputElement>(null);
 
@@ -68,40 +73,60 @@ export function Workbench() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <span className="brand" aria-label="纸页工作台">
-          <span className="brand-mark">页</span>
-          <span className="brand-name">纸页工作台</span>
-        </span>
+        <div className="brand-lockup">
+          <span className="brand-mark" aria-hidden="true">页</span>
+          <span className="brand-copy">
+            <span className="brand-name">纸页工作台</span>
+            <span className="brand-tagline">PDF → 公众号内容</span>
+          </span>
+        </div>
 
-        <nav className="mode-tabs" aria-label="工作模式">
-          {TABS.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              className={`mode-tab${mode === tab.value ? ' is-active' : ''}`}
-              aria-pressed={mode === tab.value}
-              onClick={() => setMode(tab.value)}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <nav className="mode-tabs" aria-label="工作模式" role="tablist">
+          {TABS.map((tab) => {
+            const TabIcon = TAB_ICONS[tab.value];
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                className={`mode-tab${mode === tab.value ? ' is-active' : ''}`}
+                aria-selected={mode === tab.value}
+                role="tab"
+                onClick={() => setMode(tab.value)}
+              >
+                <TabIcon aria-hidden="true" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
         <div className="header-actions">
-          <button className="icon-button" type="button" title="恢复默认配置" onClick={reset}>
-            <Icon path={ICONS.reset} />
-          </button>
           <button
-            className="icon-button"
+            className="icon-button mobile-menu-button"
             type="button"
-            title="导入配置"
-            onClick={() => configInput.current?.click()}
+            title="打开更多操作"
+            aria-label="打开更多操作"
+            onClick={() => setMobileMenuOpen(true)}
           >
-            <Icon path={ICONS.importConfig} />
+            <Menu aria-hidden="true" />
           </button>
-          <button className="icon-button" type="button" title="导出配置" onClick={exportConfig}>
-            <Icon path={ICONS.exportConfig} />
-          </button>
+          <div className="desktop-actions">
+            <button className="icon-button" type="button" title="恢复默认配置" aria-label="恢复默认配置" onClick={reset}>
+              <Icon path={ICONS.reset} />
+            </button>
+            <button
+              className="icon-button"
+              type="button"
+              title="导入配置"
+              aria-label="导入配置"
+              onClick={() => configInput.current?.click()}
+            >
+              <Icon path={ICONS.importConfig} />
+            </button>
+            <button className="icon-button" type="button" title="导出配置" aria-label="导出配置" onClick={exportConfig}>
+              <Icon path={ICONS.exportConfig} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -117,6 +142,58 @@ export function Workbench() {
           <CoverPanel />
         </section>
       </main>
+
+      <Dialog.Root open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="sheet-overlay" />
+          <Dialog.Content className="mobile-sheet">
+            <div className="mobile-sheet-heading">
+              <div>
+                <Dialog.Title>工作台菜单</Dialog.Title>
+                <Dialog.Description>切换工作区或管理你的本地配置</Dialog.Description>
+              </div>
+              <Dialog.Close asChild>
+                <button className="icon-button" type="button" aria-label="关闭菜单">
+                  <X aria-hidden="true" />
+                </button>
+              </Dialog.Close>
+            </div>
+            <div className="mobile-sheet-section">
+              <span className="sheet-label"><Settings2 aria-hidden="true" />工作区</span>
+              <div className="sheet-mode-grid">
+                {TABS.map((tab) => {
+                  const TabIcon = TAB_ICONS[tab.value];
+                  return (
+                    <Dialog.Close asChild key={tab.value}>
+                      <button
+                        type="button"
+                        className={`sheet-mode${mode === tab.value ? ' is-active' : ''}`}
+                        onClick={() => setMode(tab.value)}
+                      >
+                        <TabIcon aria-hidden="true" />
+                        <span>{tab.label}</span>
+                      </button>
+                    </Dialog.Close>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="mobile-sheet-section sheet-actions">
+              <span className="sheet-label"><RotateCcw aria-hidden="true" />配置管理</span>
+              <button type="button" className="sheet-action" onClick={() => { setMobileMenuOpen(false); reset(); }}>
+                恢复默认配置
+              </button>
+              <button type="button" className="sheet-action" onClick={() => { setMobileMenuOpen(false); configInput.current?.click(); }}>
+                导入配置文件
+              </button>
+              <button type="button" className="sheet-action" onClick={() => { setMobileMenuOpen(false); exportConfig(); }}>
+                导出当前配置
+              </button>
+            </div>
+            <p className="sheet-footnote">所有文件都在浏览器本地处理，不会上传到服务器。</p>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <input
         ref={configInput}

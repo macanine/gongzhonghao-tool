@@ -179,6 +179,15 @@ export function merge<T>(defaults: T, incoming: unknown): T {
   return out as T;
 }
 
+/**
+ * 迁移时以默认值补齐。
+ *
+ * 先克隆一份：下面会就地改 header，而 incoming 缺字段时 merge 会直接把
+ * DEFAULT_SETTINGS 的分支挂在结果上——不克隆就会改到那份模块级的默认值。
+ */
+const mergeDefaults = (incoming: unknown): Settings =>
+  merge(structuredClone(DEFAULT_SETTINGS), incoming);
+
 interface LegacyShape extends Json {
   watermark?: Json;
   export?: Json;
@@ -202,7 +211,7 @@ export function migrateSettings(value: unknown): Settings {
   if (payload.watermark || payload.export) {
     const old = payload.watermark ?? {};
     const oldExport = payload.export ?? {};
-    return merge(DEFAULT_SETTINGS, {
+    return mergeDefaults({
       article: {
         watermark: {
           enabled: old.enabled,
@@ -217,7 +226,7 @@ export function migrateSettings(value: unknown): Settings {
     });
   }
 
-  const merged = merge(DEFAULT_SETTINGS, payload);
+  const merged = mergeDefaults(payload);
 
   // v6：头图改版 —— 换掉旧版柔和配色，并把旧默认比例 4:3 换成竖版。
   // 只在升级时跑一次，之后用户想选回 4:3 也能存住。

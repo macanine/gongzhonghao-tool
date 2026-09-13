@@ -33,7 +33,10 @@ let seed = 0;
 const nextId = () => `page-${(seed += 1)}`;
 
 export function ArticlePanel() {
-  const { settings, pageCount, images } = useStore();
+  // 整份设置都要用（复制 / 打包），所以这里订阅它；背景图另取，避免和页数、
+  // 头图设置互相牵动。
+  const settings = useStore((state) => state.settings);
+  const headerImage = useStore((state) => state.images.header);
   const { watermark, output, header } = settings.article;
   const [pages, setPages] = useState<PageRecord[]>([]);
   const docs = useRef(new Map<string, DocRecord>());
@@ -119,9 +122,9 @@ export function ArticlePanel() {
       style: settings.header,
       content: header,
       pageCount: pages.length,
-      image: images.header,
+      image: headerImage,
     }),
-    [settings.header, header, pages.length, images.header],
+    [settings.header, header, pages.length, headerImage],
   );
 
   const copyAll = useCallback(() => {
@@ -444,7 +447,10 @@ function OutputSection({
 
 /** 头图小图：设置或页数一变就重画，并换成 blob URL 显示在推文开头。 */
 function useHeaderPreview(enabled: boolean): string | null {
-  const { settings, pageCount, images } = useStore();
+  const style = useStore((state) => state.settings.header);
+  const content = useStore((state) => state.settings.article.header);
+  const pageCount = useStore((state) => state.pageCount);
+  const image = useStore((state) => state.images.header);
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -455,12 +461,7 @@ function useHeaderPreview(enabled: boolean): string | null {
     let alive = true;
     let objectUrl: string | null = null;
     const timer = setTimeout(() => {
-      renderHeaderBlob({
-        style: settings.header,
-        content: settings.article.header,
-        pageCount,
-        image: images.header,
-      })
+      renderHeaderBlob({ style, content, pageCount, image })
         .then((blob) => {
           if (!alive) return;
           objectUrl = URL.createObjectURL(blob);
@@ -474,7 +475,7 @@ function useHeaderPreview(enabled: boolean): string | null {
       clearTimeout(timer);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [enabled, settings.header, settings.article.header, pageCount, images.header]);
+  }, [enabled, style, content, pageCount, image]);
 
   return url;
 }

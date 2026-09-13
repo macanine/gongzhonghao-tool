@@ -21,7 +21,7 @@ const FONTS: { value: FontKind; label: string }[] = [
 
 /** 配色：点一格整组换掉渐变色、文字色与强调色。 */
 export function PaletteSection({ kind }: { kind: PosterKind }) {
-  const style = useStore().settings[kind];
+  const style = useStore((state) => state.settings[kind]);
   const apply = (palette: Palette) =>
     patchSettings({
       [kind]: {
@@ -130,7 +130,7 @@ function loadBackground(kind: PosterKind, file: File): void {
 
 /** 版式：尺寸、比例、字体，外加各面板自己的补充项。 */
 export function StyleSection({ kind, children }: { kind: PosterKind; children?: ReactNode }) {
-  const style = useStore().settings[kind];
+  const style = useStore((state) => state.settings[kind]);
   const ratios = RATIO_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
 
   return (
