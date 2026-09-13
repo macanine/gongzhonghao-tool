@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>纸页工作台</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="brand" href="#article" aria-label="纸页工作台首页">
+        <span class="brand-mark">页</span>
+        <span class="brand-name">纸页工作台</span>
+      </a>
+
+      <nav class="mode-tabs" aria-label="工作模式">
+        <button class="mode-tab is-active" type="button" data-mode="article" aria-pressed="true">排版</button>
+        <button class="mode-tab" type="button" data-mode="header" aria-pressed="false">头图</button>
+        <button class="mode-tab" type="button" data-mode="cover" aria-pressed="false">封面</button>
+      </nav>
+
+      <div class="header-actions">
+        <button class="icon-button" id="reset-config-button" type="button" title="恢复默认配置" aria-label="恢复默认配置">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.6L4 8.7M4 4v4.7h4.7"/></svg>
+        </button>
+        <button class="icon-button" id="import-config-button" type="button" title="导入配置" aria-label="导入配置">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+        </button>
+        <button class="icon-button" id="export-config-button" type="button" title="导出配置" aria-label="导出配置">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3m0 0 4 4m-4-4-4 4M5 21h14"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <!-- ==================== 排版 ==================== -->
+      <section class="tool-view is-active" id="article-view" aria-label="公众号排版">
+        <aside class="left-rail article-rail">
+          <div class="rail-scroll">
+            <section class="control-section">
+              <div class="section-heading">
+                <span>PDF 页面</span>
+                <span class="count-badge" id="page-count">0</span>
+              </div>
+              <label class="upload-zone" id="upload-zone" for="pdf-input">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m0 0L8 7m4-4 4 4M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg>
+                <span>导入 PDF</span>
+              </label>
+              <input id="pdf-input" type="file" accept="application/pdf,.pdf" multiple hidden>
+              <div class="page-list" id="page-list" aria-live="polite"></div>
+            </section>
+
+            <section class="control-section">
+              <div class="section-heading">
+                <span>文字水印</span>
+                <label class="switch" title="启用水印">
+                  <input id="watermark-enabled" type="checkbox" checked>
+                  <span></span>
+                </label>
+              </div>
+              <label class="field">
+                <span>内容</span>
+                <input id="watermark-text" type="text" maxlength="40" placeholder="内部资料 · 请勿外传">
+              </label>
+              <div class="field-grid">
+                <label class="field">
+                  <span>字号 <output id="watermark-size-output"></output></span>
+                  <input id="watermark-size" type="range" min="4" max="16" step="0.5">
+                </label>
+                <label class="field">
+                  <span>透明度 <output id="watermark-opacity-output"></output></span>
+                  <input id="watermark-opacity" type="range" min="4" max="38" step="1">
+                </label>
+              </div>
+              <label class="field">
+                <span>颜色</span>
+                <input id="watermark-color" type="color">
+              </label>
+              <div class="fixed-setting"><span>位置与倾斜</span><strong>居中 · 45°</strong></div>
+            </section>
+
+            <section class="control-section">
+              <div class="section-heading"><span>输出图片</span></div>
+              <div class="field-grid">
+                <label class="field">
+                  <span>清晰度</span>
+                  <select id="output-scale">
+                    <option value="4">4 倍</option>
+                    <option value="3">3 倍</option>
+                    <option value="2">2 倍</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>格式</span>
+                  <select id="output-format">
+                    <option value="png">PNG</option>
+                    <option value="jpeg">JPEG</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field is-hidden" id="output-quality-field">
+                <span>JPEG 质量 <output id="output-quality-output"></output></span>
+                <input id="output-quality" type="range" min="50" max="100" step="1">
+              </label>
+              <button class="text-button danger" id="clear-pages-button" type="button">清空全部页面</button>
+            </section>
+          </div>
+        </aside>
+
+        <section class="preview-column">
+          <div class="column-toolbar">
+            <div>
+              <p class="eyebrow">公众号内容</p>
+              <h1>HTML 预览</h1>
+            </div>
+            <span class="status-dot" id="article-status">等待 PDF</span>
+          </div>
+          <div class="preview-scroll" id="article-preview-scroll">
+            <article class="article-preview" id="article-preview" aria-live="polite"></article>
+          </div>
+        </section>
+
+        <aside class="right-rail publish-rail">
+          <section class="publish-card">
+            <span class="eyebrow">发布</span>
+            <h2>复制到公众号</h2>
+            <p id="publish-summary">图片会以 HTML 富文本形式复制。</p>
+            <button class="primary-button" id="copy-all-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+              一键复制全部
+            </button>
+            <button class="secondary-button" id="download-images-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+              下载图片包
+            </button>
+          </section>
+
+          <section class="publish-info">
+            <div class="info-row"><span>头图</span><strong>可选附在开头</strong></div>
+            <div class="info-row"><span>处理方式</span><strong>仅本地</strong></div>
+            <div class="info-row"><span>页面顺序</span><strong>拖动调整</strong></div>
+            <div class="info-row"><span>图片水印</span><strong>实时预览</strong></div>
+          </section>
+        </aside>
+      </section>
+
+      <!-- ==================== 头图 ==================== -->
+      <section class="tool-view" id="header-view" aria-label="头图生成器">
+        <aside class="left-rail header-rail">
+          <div class="rail-scroll">
+            <section class="control-section control-section--primary">
+              <div class="section-heading">
+                <span>试卷信息</span>
+                <label class="switch" title="复制时带上头图">
+                  <input id="header-enabled" type="checkbox" checked>
+                  <span></span>
+                </label>
+              </div>
+              <p class="section-note">头图拼在推文最前面，由标题、时间、难度、页数组成，下面是获取提示。</p>
+              <label class="field">
+                <span>标题（支持两行）</span>
+                <textarea id="header-title" rows="2" maxlength="40" placeholder="七年级数学&#10;期中模拟卷"></textarea>
+              </label>
+              <div class="field-grid">
+                <label class="field"><span>时间</span><input id="header-date" type="text" maxlength="20" placeholder="2026.09"></label>
+                <label class="field"><span>难度</span><input id="header-difficulty" type="text" maxlength="12" placeholder="中等"></label>
+              </div>
+              <label class="field"><span>页数（留空按 PDF 页数）</span><input id="header-pages" type="text" maxlength="16" placeholder="共 8 页"></label>
+              <label class="field">
+                <span>获取提示</span>
+                <textarea id="header-hint" rows="2" maxlength="60" placeholder="需要完整电子版？在评论区留言，获取下载链接"></textarea>
+              </label>
+            </section>
+
+            <section class="control-section">
+              <div class="section-heading"><span>配色</span></div>
+              <div class="palette-grid" id="header-palette-list"></div>
+              <label class="field"><span>强调色</span><input id="header-accent" type="color"></label>
+              <div class="segmented" role="group" aria-label="背景类型">
+                <button class="segment is-active" type="button" data-header-bg="color">纯色</button>
+                <button class="segment" type="button" data-header-bg="gradient">渐变</button>
+                <button class="segment" type="button" data-header-bg="image">图片</button>
+              </div>
+              <div class="field-grid">
+                <label class="field"><span>底色</span><input id="header-color-a" type="color"></label>
+                <label class="field" id="header-color-b-field"><span>第二色</span><input id="header-color-b" type="color"></label>
+              </div>
+              <label class="field is-hidden" id="header-image-field">
+                <span>背景图片</span>
+                <input id="header-image" type="file" accept="image/*">
+              </label>
+              <label class="field is-hidden" id="header-dim-field">
+                <span>遮罩 <output id="header-dim-output"></output></span>
+                <input id="header-dim" type="range" min="0" max="76" step="1">
+              </label>
+              <label class="field"><span>文字色</span><input id="header-text-color" type="color"></label>
+            </section>
+
+            <section class="control-section">
+              <div class="section-heading"><span>样式与导出</span></div>
+              <div class="field-grid">
+                <label class="field">
+                  <span>宽度</span>
+                  <select id="header-width">
+                    <option value="1200">1200 px</option>
+                    <option value="1600">1600 px</option>
+                    <option value="2000">2000 px</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>比例</span>
+                  <select id="header-ratio">
+                    <option value="4:5">4 : 5 竖版</option>
+                    <option value="3:4">3 : 4 竖版</option>
+                    <option value="1:1">1 : 1 方版</option>
+                    <option value="4:3">4 : 3 横版</option>
+                    <option value="3:2">3 : 2 横版</option>
+                    <option value="16:9">16 : 9 横幅</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field">
+                <span>字体</span>
+                <select id="header-font">
+                  <option value="serif">衬线</option>
+                  <option value="sans">无衬线</option>
+                </select>
+              </label>
+              <button class="text-button" id="header-sync-button" type="button">同步封面配色</button>
+            </section>
+          </div>
+        </aside>
+
+        <section class="cover-canvas-column">
+          <div class="column-toolbar">
+            <div>
+              <p class="eyebrow">公众号头图</p>
+              <h1>试卷信息头图</h1>
+            </div>
+            <span class="status-dot" id="header-status">1200 × 1500 px · 4:5</span>
+          </div>
+          <div class="canvas-wrap header-canvas-wrap">
+            <canvas id="header-canvas" width="1200" height="1500"></canvas>
+          </div>
+        </section>
+
+        <aside class="right-rail publish-rail">
+          <section class="publish-card">
+            <span class="eyebrow">导出</span>
+            <h2>头图成品</h2>
+            <p>拼在推文最前面，读者第一眼看到的画面。</p>
+            <button class="primary-button" id="download-header-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+              下载 PNG
+            </button>
+            <button class="secondary-button" id="copy-header-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+              复制头图
+            </button>
+          </section>
+          <section class="publish-info">
+            <div class="info-row"><span>比例</span><strong>竖版 / 方版 / 横版</strong></div>
+            <div class="info-row"><span>排版里</span><strong>附在推文开头</strong></div>
+            <div class="info-row"><span>处理方式</span><strong>仅本地</strong></div>
+          </section>
+        </aside>
+      </section>
+
+      <!-- ==================== 封面 ==================== -->
+      <section class="tool-view" id="cover-view" aria-label="封面生成器">
+        <aside class="left-rail cover-rail">
+          <div class="rail-scroll">
+            <section class="control-section">
+              <div class="section-heading"><span>文案</span></div>
+              <label class="field">
+                <span>主标题（支持两行）</span>
+                <textarea id="cover-title" rows="2" maxlength="32" placeholder="手写笔记&#10;可在这里换行"></textarea>
+              </label>
+              <label class="field">
+                <span>副标题（可选）</span>
+                <input id="cover-subtitle" type="text" maxlength="46" placeholder="阅读、摘录与思考">
+              </label>
+            </section>
+
+            <section class="control-section">
+              <div class="section-heading"><span>背景</span></div>
+              <div class="segmented" role="group" aria-label="背景类型">
+                <button class="segment is-active" type="button" data-cover-bg="color">纯色</button>
+                <button class="segment" type="button" data-cover-bg="gradient">渐变</button>
+                <button class="segment" type="button" data-cover-bg="image">图片</button>
+              </div>
+              <div class="field-grid">
+                <label class="field"><span>底色</span><input id="cover-color-a" type="color"></label>
+                <label class="field" id="cover-color-b-field"><span>第二色</span><input id="cover-color-b" type="color"></label>
+              </div>
+              <label class="field is-hidden" id="cover-image-field">
+                <span>背景图片</span>
+                <input id="cover-image" type="file" accept="image/*">
+              </label>
+              <label class="field is-hidden" id="cover-dim-field">
+                <span>遮罩 <output id="cover-dim-output"></output></span>
+                <input id="cover-dim" type="range" min="0" max="76" step="1">
+              </label>
+              <button class="text-button" id="cover-palette-button" type="button">换一组配色</button>
+            </section>
+
+            <section class="control-section">
+              <div class="section-heading"><span>样式与导出</span></div>
+              <div class="field-grid">
+                <label class="field">
+                  <span>字体</span>
+                  <select id="cover-font">
+                    <option value="serif">衬线</option>
+                    <option value="sans">无衬线</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>宽度</span>
+                  <select id="cover-width">
+                    <option value="900">900 px</option>
+                    <option value="1200">1200 px</option>
+                    <option value="1800">1800 px</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field"><span>文字色</span><input id="cover-text-color" type="color"></label>
+              <div class="fixed-setting"><span>封面比例</span><strong>2.35 : 1</strong></div>
+            </section>
+          </div>
+        </aside>
+
+        <section class="cover-canvas-column">
+          <div class="column-toolbar">
+            <div>
+              <p class="eyebrow">微信封面</p>
+              <h1>文字封面</h1>
+            </div>
+            <span class="status-dot" id="cover-status">900 × 383 px</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="cover-canvas" width="900" height="383"></canvas>
+          </div>
+        </section>
+
+        <aside class="right-rail publish-rail">
+          <section class="publish-card">
+            <span class="eyebrow">导出</span>
+            <h2>封面成品</h2>
+            <p>按当前尺寸导出 PNG 图片。</p>
+            <button class="primary-button" id="download-cover-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+              下载 PNG
+            </button>
+            <button class="secondary-button" id="copy-cover-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+              复制封面
+            </button>
+          </section>
+          <section class="publish-info">
+            <div class="info-row"><span>默认尺寸</span><strong>900 × 383</strong></div>
+            <div class="info-row"><span>比例</span><strong>2.35 : 1</strong></div>
+            <div class="info-row"><span>背景图片</span><strong>不离开浏览器</strong></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <div class="job-overlay" id="job-overlay" hidden>
+    <div class="job-dialog" role="status" aria-live="polite">
+      <div class="progress-ring" aria-hidden="true"></div>
+      <div>
+        <strong id="job-title">处理中</strong>
+        <p id="job-detail">准备中</p>
+      </div>
+      <button class="job-cancel" id="job-cancel" type="button">取消</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <input id="config-input" type="file" accept="application/json,.json" hidden>
+
+  <script src="vendor/jszip.min.js"></script>
+  <script src="vendor/pdf.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
