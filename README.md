@@ -101,3 +101,7 @@ tools/screenshot.mjs 无头截图脚本
 `npm run build` 出来的 `out/` 是纯静态文件，扔到任意静态托管即可
 （Vercel / GitHub Pages / 对象存储 / 内网 nginx）。
 没有服务端，没有环境变量，没有数据库。
+
+在 Vercel 上直接选择 Next.js 项目即可。仓库里的 `vercel.json` 只声明
+Next.js 框架，不覆盖 Output Directory；Vercel 会根据 Next.js 配置自动处理
+构建产物。若在 Vercel 项目设置中手动填写过 Output Directory，请保持为空。
