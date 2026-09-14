@@ -36,30 +36,34 @@ npm run start
 | `npm run start` | 启动生产构建 |
 | `npm test` | 单元测试（vitest） |
 | `npm run typecheck` | 类型检查 |
-| `node tools/screenshot.mjs [目录]` | 无头浏览器给三个页面截图 |
+| `node tools/screenshot.mjs [目录]` | 无头浏览器截图（三个工作区 + 手机端 + 弹窗） |
 
 ## 技术栈
 
-Next.js 16 App Router、React 19、TypeScript、pdf.js、Radix UI、Lucide React、Vitest。
+Next.js 16 App Router、React 19、TypeScript、Tailwind CSS v4、Radix UI、pdf.js、
+Lucide React、Vitest。
 
 ## 代码结构
 
 ```
 app/                  Next.js App Router
-lib/                  与框架无关的核心逻辑，可直接单元测试
+  globals.css         设计令牌（@theme）与全局样式
+lib/                  核心逻辑
   settings.ts         配置类型、默认值、版本迁移
   palettes.ts         18 组配色主题
   store.ts            全局状态（useSyncExternalStore）
   feedback.ts         任务浮层与提示条
+  utils.ts            cn() 类名合并
   canvas/             排字工具、背景、头图、封面绘制
   article/            pdf.js 加载渲染、富文本复制、图片打包、串行队列
 components/           React 组件，只负责把状态接到 UI 上
+  ui/                 按钮、表单、弹窗等通用控件（Tailwind + Radix）
 tests/                vitest 测试
 tools/screenshot.mjs  无头浏览器截图脚本
 ```
 
-`lib/` 里不出现 React，`components/` 里不出现画布数学。排版规则（行数、字号、留白、
-不截断）因此全部能在 Node 里测试。
+`lib/canvas/` 与 `lib/article/` 不依赖 React，`components/` 里不写画布数学。排版规则
+（行数、字号、留白、不截断）因此全部能在 Node 里测试。
 
 ## 部署
 

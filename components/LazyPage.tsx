@@ -1,10 +1,11 @@
 'use client';
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { WatermarkSettings } from '@/lib/settings';
 import { renderPage } from '@/lib/article/pdf';
 import { serialize } from '@/lib/article/queue';
+import { cn } from '@/lib/utils';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -96,12 +97,33 @@ export const LazyPage = memo(function LazyPage({
   return (
     <div
       ref={hostRef}
-      className={`preview-page${status === 'loading' || status === 'idle' ? ' is-loading' : ''}${
-        status === 'error' ? ' is-error' : ''
-      }`}
-      style={{ ['--page-aspect' as string]: `${Math.max(0.2, aspect) * 100}%` }}
+      className="aspect-box mb-4 rounded-[2px] bg-[#f3f6f3] last:mb-0"
+      style={{ '--page-aspect': `${Math.max(0.2, aspect) * 100}%` } as CSSProperties}
     >
-      {url ? <img src={url} alt={`第 ${pageNumber} 页`} draggable={false} /> : null}
+      {url ? (
+        <img
+          src={url}
+          alt={`第 ${pageNumber} 页`}
+          draggable={false}
+          className="absolute inset-0 size-full object-fill"
+        />
+      ) : null}
+      {status === 'error' ? (
+        <p className="absolute inset-0 grid place-items-center text-[11px] text-danger">
+          该页无法生成预览
+        </p>
+      ) : null}
+      {!url && status !== 'error' ? (
+        <p
+          className={cn(
+            'absolute inset-0 grid animate-shimmer place-items-center',
+            'bg-[linear-gradient(110deg,#f3f6f3_35%,#f8fbf8_50%,#f3f6f3_65%)] bg-[length:200%_100%]',
+            'text-[11px] tracking-[0.04em] text-faint',
+          )}
+        >
+          正在生成预览
+        </p>
+      ) : null}
     </div>
   );
 });

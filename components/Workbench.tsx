@@ -1,27 +1,60 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import { FileText, Image, Menu, Palette, RotateCcw, Settings2, X } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  FileText,
+  Image as ImageIcon,
+  Menu,
+  Palette,
+  RotateCcw,
+  Settings2,
+  type LucideIcon,
+} from 'lucide-react';
 import { cancelJob, toast } from '@/lib/feedback';
 import { migrateSettings, CONFIG_VERSION, type Settings } from '@/lib/settings';
 import { hydrate, replaceSettings, resetSettings, useSettings } from '@/lib/store';
 import { downloadBlob, stamp } from '@/lib/canvas/kit';
+import { cn } from '@/lib/utils';
 import { ArticlePanel } from './ArticlePanel';
 import { CoverPanel } from './CoverPanel';
 import { HeaderPanel } from './HeaderPanel';
-import { JobOverlay, Toaster } from './Feedback';
-import { ICONS, Icon } from './ui';
+import { JobOverlay } from './Feedback';
+import {
+  Button,
+  Confirmer,
+  Sheet,
+  SheetAction,
+  SheetActions,
+  SheetFootnote,
+  SheetLabel,
+  SheetModeButton,
+  SheetModeGrid,
+  SheetSection,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Toaster,
+  confirm,
+} from './ui';
 
 type Mode = 'article' | 'header' | 'cover';
 
-const TABS: { value: Mode; label: string }[] = [
-  { value: 'article', label: '排版' },
-  { value: 'header', label: '头图' },
-  { value: 'cover', label: '封面' },
+const TABS: { value: Mode; label: string; icon: LucideIcon }[] = [
+  { value: 'article', label: '排版', icon: FileText },
+  { value: 'header', label: '头图', icon: ImageIcon },
+  { value: 'cover', label: '封面', icon: Palette },
 ];
 
-const TAB_ICONS = { article: FileText, header: Image, cover: Palette } as const;
+/** 三个工作区共用的三栏骨架：窄屏收掉右栏，手机上下叠成两段。 */
+const PANEL_GRID = cn(
+  'grid h-full min-h-0',
+  'grid-cols-[minmax(270px,300px)_minmax(0,1fr)_minmax(240px,286px)]',
+  'max-[1200px]:grid-cols-[minmax(260px,286px)_minmax(0,1fr)]',
+  'max-[768px]:grid-cols-1 max-[768px]:grid-rows-[minmax(180px,43dvh)_minmax(0,1fr)]',
+);
 
 export function Workbench() {
   const [mode, setMode] = useState<Mode>('article');
@@ -64,136 +97,172 @@ export function Workbench() {
     }
   };
 
-  const reset = () => {
-    if (!window.confirm('恢复默认配置？当前水印、导出、头图和封面设置会被覆盖。')) return;
+  const reset = async () => {
+    const confirmed = await confirm(
+      '恢复默认配置？当前水印、导出、头图和封面设置会被覆盖。',
+      '恢复默认',
+    );
+    if (!confirmed) return;
     resetSettings();
     toast('已恢复默认配置');
   };
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">页</span>
-          <span className="brand-copy">
-            <span className="brand-name">纸页工作台</span>
-            <span className="brand-tagline">PDF → 公众号内容</span>
+    <Tabs
+      value={mode}
+      onValueChange={(next) => setMode(next as Mode)}
+      className="flex h-dvh w-full flex-col overflow-hidden bg-canvas bg-[radial-gradient(circle_at_75%_-18%,#e6f5ed_0,transparent_38%)]"
+    >
+      <header
+        className={cn(
+          'relative z-10 flex items-center border-b border-line-strong/80 bg-paper/85 backdrop-blur-xl',
+          'min-h-19 gap-[clamp(16px,4vw,54px)] px-[clamp(16px,3vw,42px)] py-3',
+          'max-[768px]:min-h-15.5 max-[768px]:gap-2.5 max-[768px]:px-3 max-[768px]:py-2',
+        )}
+      >
+        <div className="inline-flex min-w-max items-center gap-2.75">
+          <span
+            aria-hidden="true"
+            className="grid size-9.5 place-items-center rounded-md bg-ink font-serif text-lg leading-none text-white shadow-[0_5px_12px_rgba(24,34,29,0.16)] max-[768px]:size-8.5 max-[768px]:text-base"
+          >
+            页
+          </span>
+          <span className="grid gap-px">
+            <span className="text-[15px] font-bold tracking-tight text-ink max-[768px]:text-sm">
+              纸页工作台
+            </span>
+            <span className="text-[10px] tracking-[0.04em] text-muted max-[768px]:hidden">
+              PDF → 公众号内容
+            </span>
           </span>
         </div>
 
-        <nav className="mode-tabs" aria-label="工作模式" role="tablist">
-          {TABS.map((tab) => {
-            const TabIcon = TAB_ICONS[tab.value];
-            return (
-              <button
-                key={tab.value}
-                type="button"
-                className={`mode-tab${mode === tab.value ? ' is-active' : ''}`}
-                aria-selected={mode === tab.value}
-                role="tab"
-                onClick={() => setMode(tab.value)}
-              >
-                <TabIcon aria-hidden="true" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <TabsList
+          aria-label="工作模式"
+          className={cn(
+            'max-[768px]:flex-1 max-[768px]:justify-end max-[768px]:overflow-x-auto',
+            'max-[768px]:[scrollbar-width:none] max-[768px]:[&::-webkit-scrollbar]:hidden',
+          )}
+        >
+          {TABS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value} className="max-[400px]:px-0 max-[400px]:w-9 max-[400px]:justify-center">
+              <tab.icon aria-hidden="true" className="size-4 max-[768px]:size-3.5" />
+              <span className="max-[400px]:hidden">{tab.label}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-        <div className="header-actions">
-          <button
-            className="icon-button mobile-menu-button"
-            type="button"
-            title="打开更多操作"
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="icon"
             aria-label="打开更多操作"
+            title="打开更多操作"
+            className="hidden max-[768px]:grid"
             onClick={() => setMobileMenuOpen(true)}
           >
-            <Menu aria-hidden="true" />
-          </button>
-          <div className="desktop-actions">
-            <button className="icon-button" type="button" title="恢复默认配置" aria-label="恢复默认配置" onClick={reset}>
-              <Icon path={ICONS.reset} />
-            </button>
-            <button
-              className="icon-button"
-              type="button"
+            <Menu aria-hidden="true" className="size-4.5" />
+          </Button>
+          <div className="flex items-center gap-1 max-[768px]:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="恢复默认配置"
+              aria-label="恢复默认配置"
+              onClick={() => void reset()}
+            >
+              <RotateCcw aria-hidden="true" className="size-4.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               title="导入配置"
               aria-label="导入配置"
               onClick={() => configInput.current?.click()}
             >
-              <Icon path={ICONS.importConfig} />
-            </button>
-            <button className="icon-button" type="button" title="导出配置" aria-label="导出配置" onClick={exportConfig}>
-              <Icon path={ICONS.exportConfig} />
-            </button>
+              <ArrowDownToLine aria-hidden="true" className="size-4.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="导出配置"
+              aria-label="导出配置"
+              onClick={exportConfig}
+            >
+              <ArrowUpFromLine aria-hidden="true" className="size-4.5" />
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="workspace">
+      <main className="min-h-0 flex-1 overflow-hidden">
         {/* 三个面板都保持挂载：切回来时 PDF 页与预览不会重来一遍。 */}
-        <section className={`tool-view${mode === 'article' ? ' is-active' : ''}`}>
+        <TabsContent value="article" forceMount className={PANEL_GRID}>
           <ArticlePanel />
-        </section>
-        <section className={`tool-view${mode === 'header' ? ' is-active' : ''}`}>
+        </TabsContent>
+        <TabsContent value="header" forceMount className={PANEL_GRID}>
           <HeaderPanel />
-        </section>
-        <section className={`tool-view${mode === 'cover' ? ' is-active' : ''}`}>
+        </TabsContent>
+        <TabsContent value="cover" forceMount className={PANEL_GRID}>
           <CoverPanel />
-        </section>
+        </TabsContent>
       </main>
 
-      <Dialog.Root open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="sheet-overlay" />
-          <Dialog.Content className="mobile-sheet">
-            <div className="mobile-sheet-heading">
-              <div>
-                <Dialog.Title>工作台菜单</Dialog.Title>
-                <Dialog.Description>切换工作区或管理你的本地配置</Dialog.Description>
-              </div>
-              <Dialog.Close asChild>
-                <button className="icon-button" type="button" aria-label="关闭菜单">
-                  <X aria-hidden="true" />
-                </button>
-              </Dialog.Close>
-            </div>
-            <div className="mobile-sheet-section">
-              <span className="sheet-label"><Settings2 aria-hidden="true" />工作区</span>
-              <div className="sheet-mode-grid">
-                {TABS.map((tab) => {
-                  const TabIcon = TAB_ICONS[tab.value];
-                  return (
-                    <Dialog.Close asChild key={tab.value}>
-                      <button
-                        type="button"
-                        className={`sheet-mode${mode === tab.value ? ' is-active' : ''}`}
-                        onClick={() => setMode(tab.value)}
-                      >
-                        <TabIcon aria-hidden="true" />
-                        <span>{tab.label}</span>
-                      </button>
-                    </Dialog.Close>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="mobile-sheet-section sheet-actions">
-              <span className="sheet-label"><RotateCcw aria-hidden="true" />配置管理</span>
-              <button type="button" className="sheet-action" onClick={() => { setMobileMenuOpen(false); reset(); }}>
-                恢复默认配置
-              </button>
-              <button type="button" className="sheet-action" onClick={() => { setMobileMenuOpen(false); configInput.current?.click(); }}>
-                导入配置文件
-              </button>
-              <button type="button" className="sheet-action" onClick={() => { setMobileMenuOpen(false); exportConfig(); }}>
-                导出当前配置
-              </button>
-            </div>
-            <p className="sheet-footnote">所有文件都在浏览器本地处理，不会上传到服务器。</p>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <Sheet
+        open={mobileMenuOpen}
+        onOpenChange={setMobileMenuOpen}
+        title="工作台菜单"
+        description="切换工作区或管理你的本地配置"
+      >
+        <SheetSection>
+          <SheetLabel icon={Settings2}>工作区</SheetLabel>
+          <SheetModeGrid>
+            {TABS.map((tab) => (
+              <SheetModeButton
+                key={tab.value}
+                active={mode === tab.value}
+                icon={tab.icon}
+                onClick={() => {
+                  setMode(tab.value);
+                  setMobileMenuOpen(false);
+                }}
+              >
+                {tab.label}
+              </SheetModeButton>
+            ))}
+          </SheetModeGrid>
+        </SheetSection>
+        <SheetSection>
+          <SheetLabel icon={RotateCcw}>配置管理</SheetLabel>
+          <SheetActions>
+            <SheetAction
+              onClick={() => {
+                setMobileMenuOpen(false);
+                void reset();
+              }}
+            >
+              恢复默认配置
+            </SheetAction>
+            <SheetAction
+              onClick={() => {
+                setMobileMenuOpen(false);
+                configInput.current?.click();
+              }}
+            >
+              导入配置文件
+            </SheetAction>
+            <SheetAction
+              onClick={() => {
+                setMobileMenuOpen(false);
+                exportConfig();
+              }}
+            >
+              导出当前配置
+            </SheetAction>
+          </SheetActions>
+        </SheetSection>
+        <SheetFootnote>所有文件都在浏览器本地处理，不会上传到服务器。</SheetFootnote>
+      </Sheet>
 
       <input
         ref={configInput}
@@ -209,6 +278,7 @@ export function Workbench() {
 
       <JobOverlay onCancel={cancelJob} />
       <Toaster />
-    </div>
+      <Confirmer />
+    </Tabs>
   );
 }

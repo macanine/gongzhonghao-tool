@@ -127,34 +127,56 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 /* ---------- 开拍 ---------- */
 await send('Page.enable');
 await send('Runtime.enable');
-await send('Emulation.setDeviceMetricsOverride', {
-  width: 1440,
-  height: 960,
-  deviceScaleFactor: 1,
-  mobile: false,
-});
+
+const DESKTOP = { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false };
+const PHONE = { width: 390, height: 844, deviceScaleFactor: 1, mobile: true };
 
 await mkdir(TARGET, { recursive: true });
 
-async function shoot(name, { tab, scrollTop = 0 } = {}) {
+/** 派发完整的按下/抬起/点击序列：Radix 的 Tabs 在 mousedown 上切换，只 click 切不动。 */
+const press = (selector) => `(() => {
+  const el = document.querySelector(${JSON.stringify(selector)});
+  if (!el) return false;
+  const opts = { bubbles: true, cancelable: true, button: 0 };
+  el.dispatchEvent(new MouseEvent('mousedown', opts));
+  el.dispatchEvent(new MouseEvent('mouseup', opts));
+  el.click();
+  return true;
+})()`;
+
+async function shoot(name, { tab, scrollTop = 0, viewport = DESKTOP, action } = {}) {
+  await send('Emulation.setDeviceMetricsOverride', viewport);
   const loaded = once('Page.loadEventFired');
   await send('Page.navigate', { url: origin });
   await loaded;
   await sleep(500);
 
   if (tab) {
-    await send('Runtime.evaluate', {
-      expression: `[...document.querySelectorAll('.mode-tab')].find((b) => b.textContent.trim() === ${JSON.stringify(
-        tab,
-      )})?.click()`,
+    const { result } = await send('Runtime.evaluate', {
+      expression: `(() => {
+        const el = [...document.querySelectorAll('[role="tab"]')]
+          .find((b) => b.textContent.trim() === ${JSON.stringify(tab)});
+        if (!el) return false;
+        const opts = { bubbles: true, cancelable: true, button: 0 };
+        el.dispatchEvent(new MouseEvent('mousedown', opts));
+        el.dispatchEvent(new MouseEvent('mouseup', opts));
+        el.click();
+        return true;
+      })()`,
     });
+    if (result?.value !== true) throw new Error(`找不到标签页：${tab}`);
     await sleep(600);
   }
   if (scrollTop) {
     await send('Runtime.evaluate', {
-      expression: `(() => { const s = document.querySelector('.preview-scroll, .rail-scroll'); if (s) s.scrollTop = ${scrollTop}; })()`,
+      expression: `(() => { const s = document.querySelector('[data-scroll="preview"], [data-scroll="rail"]'); if (s) s.scrollTop = ${scrollTop}; })()`,
     });
     await sleep(250);
+  }
+  if (action) {
+    const { result } = await send('Runtime.evaluate', { expression: action });
+    if (result?.value === false) throw new Error(`${name}：操作未命中目标元素`);
+    await sleep(500);
   }
 
   const { data } = await send('Page.captureScreenshot', { format: 'png' });
@@ -167,7 +189,12 @@ try {
   await shoot('01-article');
   await shoot('02-header', { tab: '头图' });
   await shoot('03-cover', { tab: '封面' });
-  await shoot('04-canvas', { tab: '头图', scrollTop: 0 });
+  await shoot('04-mobile', { viewport: PHONE });
+  await shoot('05-mobile-sheet', {
+    viewport: PHONE,
+    action: press('[aria-label="打开更多操作"]'),
+  });
+  await shoot('06-confirm', { action: press('[aria-label="恢复默认配置"]') });
 } finally {
   socket.close();
   chrome.kill();

@@ -1,31 +1,30 @@
 'use client';
 
-import { useJob, useToast } from '@/lib/feedback';
+import { useJob } from '@/lib/feedback';
+import { Button } from './ui';
 
 export function JobOverlay({ onCancel }: { onCancel: () => void }) {
   const job = useJob();
   if (!job) return null;
   return (
-    <div className="job-overlay">
-      <div className="job-dialog" role="status" aria-live="polite">
-        <div className="progress-ring" aria-hidden="true" />
-        <div>
-          <strong>{job.title}</strong>
-          <p>{job.detail}</p>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-canvas/75 p-5 backdrop-blur-md">
+      <div
+        role="status"
+        aria-live="polite"
+        className="grid w-[min(100%,430px)] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-lg border border-line bg-paper p-5 shadow-lift"
+      >
+        <span
+          aria-hidden="true"
+          className="size-6 animate-spin rounded-full border-2 border-line-strong border-t-accent"
+        />
+        <div className="min-w-0">
+          <strong className="block text-sm font-semibold text-ink">{job.title}</strong>
+          <p className="mt-0.5 truncate text-xs text-muted">{job.detail}</p>
         </div>
-        <button className="job-cancel" type="button" onClick={onCancel}>
+        <Button variant="secondary" size="sm" onClick={onCancel}>
           取消
-        </button>
+        </Button>
       </div>
-    </div>
-  );
-}
-
-export function Toaster() {
-  const toast = useToast();
-  return (
-    <div className={`toast${toast ? ' is-showing' : ''}${toast?.error ? ' is-error' : ''}`} role="status" aria-live="polite">
-      {toast?.message ?? ''}
     </div>
   );
 }

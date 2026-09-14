@@ -1,24 +1,33 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Copy, Download, Trash2, Upload, X } from 'lucide-react';
 import { isPdf, loadPdf, type DocRecord } from '@/lib/article/pdf';
 import { buildArticleHtml, buildZip, copyHtml, renderHeaderBlob } from '@/lib/article/export';
 import { runJob, toast } from '@/lib/feedback';
 import { ARTICLE_WIDTH, ratioOf, type WatermarkSettings } from '@/lib/settings';
 import { patchSettings, setPageCount, useStore } from '@/lib/store';
+import { cn } from '@/lib/utils';
 import { LazyPage } from './LazyPage';
 import {
+  Button,
+  Card,
+  ColorInput,
+  CountBadge,
+  Eyebrow,
   Field,
   FieldGrid,
   FixedRow,
-  ICONS,
-  Icon,
-  PrimaryButton,
-  SecondaryButton,
-  SelectField,
-  Slider,
+  InfoRow,
+  Input,
+  Rail,
+  Section,
+  SectionHeading,
+  Select,
+  SliderField,
+  StageColumn,
   Switch,
-  TextButton,
+  confirm,
 } from './ui';
 
 interface PageRecord {
@@ -41,6 +50,7 @@ export function ArticlePanel() {
   const [pages, setPages] = useState<PageRecord[]>([]);
   const docs = useRef(new Map<string, DocRecord>());
   const [dragging, setDragging] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [draggingOver, setDraggingOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -89,9 +99,13 @@ export function ArticlePanel() {
     });
   }, []);
 
-  const clearPages = useCallback(() => {
+  const clearPages = useCallback(async () => {
     if (!pages.length) return;
-    if (!window.confirm(`清空当前 ${pages.length} 页 PDF？此操作不会影响已保存的配置。`)) return;
+    const confirmed = await confirm(
+      `清空当前 ${pages.length} 页 PDF？此操作不会影响已保存的配置。`,
+      '清空',
+    );
+    if (!confirmed) return;
     docs.current.forEach((doc) => doc.release().catch(() => undefined));
     docs.current.clear();
     setPages([]);
@@ -168,116 +182,155 @@ export function ArticlePanel() {
 
   return (
     <>
-      <aside className="left-rail article-rail">
-        <div className="rail-scroll">
-          <section className="control-section">
-            <div className="section-heading">
-              <span>PDF 页面</span>
-              <span className="count-badge">{pages.length}</span>
-            </div>
-            <button
-              type="button"
-              className={`upload-zone${draggingOver ? ' is-dragover' : ''}`}
-              onClick={() => fileInput.current?.click()}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setDraggingOver(true);
-              }}
-              onDragLeave={() => setDraggingOver(false)}
-              onDrop={(event) => {
-                event.preventDefault();
-                setDraggingOver(false);
-                void importFiles(event.dataTransfer.files);
-              }}
-            >
-              <Icon path={ICONS.upload} />
-              <span>导入 PDF</span>
-            </button>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="application/pdf,.pdf"
-              multiple
-              hidden
-              onChange={(event) => {
-                void importFiles(event.target.files);
-                event.target.value = '';
-              }}
-            />
-            <div className="page-list">
-              {pages.map((page, index) => (
-                <div
-                  key={page.id}
-                  className={`page-row${dragging === page.id ? ' is-dragging' : ''}`}
-                  draggable
-                  onDragStart={() => setDragging(page.id)}
-                  onDragEnd={() => setDragging(null)}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    if (dragging && dragging !== page.id) event.dataTransfer.dropEffect = 'move';
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    if (dragging && dragging !== page.id) {
-                      const rect = event.currentTarget.getBoundingClientRect();
-                      movePage(dragging, page.id, event.clientY < rect.top + rect.height / 2);
-                    }
-                    setDragging(null);
-                  }}
+      <Rail>
+        <Section>
+          <SectionHeading trailing={<CountBadge>{pages.length}</CountBadge>}>PDF 页面</SectionHeading>
+          <Button
+            variant="secondary"
+            onClick={() => fileInput.current?.click()}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDraggingOver(true);
+            }}
+            onDragLeave={() => setDraggingOver(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDraggingOver(false);
+              void importFiles(event.dataTransfer.files);
+            }}
+            className={cn(
+              'grid w-full justify-items-center gap-1.5 rounded-md border border-dashed px-3.5 py-5',
+              'bg-gradient-to-b from-paper to-accent-wash',
+              'transition-[border-color,background-color,transform,box-shadow] duration-150',
+              draggingOver
+                ? '-translate-y-px border-accent bg-accent-soft shadow-card'
+                : 'border-line-strong hover:-translate-y-px hover:border-accent hover:bg-accent-soft hover:shadow-card',
+            )}
+          >
+            <Upload aria-hidden="true" className="size-5 text-accent" />
+            <span className="text-[13px] font-semibold">导入 PDF</span>
+          </Button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            hidden
+            onChange={(event) => {
+              void importFiles(event.target.files);
+              event.target.value = '';
+            }}
+          />
+
+          <div className="mt-3 grid gap-1.5">
+            {pages.map((page, index) => (
+              <div
+                key={page.id}
+                draggable
+                onDragStart={() => setDragging(page.id)}
+                onDragEnd={() => {
+                  setDragging(null);
+                  setDropTarget(null);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  if (dragging && dragging !== page.id) {
+                    event.dataTransfer.dropEffect = 'move';
+                    setDropTarget(page.id);
+                  }
+                }}
+                onDragLeave={() => setDropTarget((current) => (current === page.id ? null : current))}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (dragging && dragging !== page.id) {
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    movePage(dragging, page.id, event.clientY < rect.top + rect.height / 2);
+                  }
+                  setDragging(null);
+                  setDropTarget(null);
+                }}
+                className={cn(
+                  'grid grid-cols-[10px_38px_minmax(0,1fr)_30px] items-center gap-2 rounded-md border p-1.75',
+                  'transition-[background-color,border-color,opacity] duration-150',
+                  dragging === page.id
+                    ? 'border-transparent opacity-40'
+                    : dropTarget === page.id
+                      ? 'border-accent bg-accent-soft'
+                      : 'border-transparent hover:border-line hover:bg-panel',
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className="rotate-90 text-base tracking-[-2px] text-faint select-none"
                 >
-                  <span className="page-grip">···</span>
-                  <span className="page-thumb-placeholder">{page.pageNumber}</span>
-                  <span className="page-meta">
-                    <span className="page-name" title={page.name}>
-                      {page.name}
-                    </span>
-                    <span className="page-sub">
-                      第 {page.pageNumber} 页 · {index + 1}
-                    </span>
+                  ···
+                </span>
+                <span className="grid h-12 w-9.5 place-items-center rounded-xs border border-line bg-[#edf2ee] text-[10px] font-bold text-muted">
+                  {page.pageNumber}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[11px] font-semibold text-ink" title={page.name}>
+                    {page.name}
                   </span>
-                  <button
-                    type="button"
-                    className="row-icon-button"
-                    title="删除此页"
-                    aria-label="删除此页"
-                    onClick={() => setPages((previous) => previous.filter((item) => item.id !== page.id))}
-                  >
-                    <Icon path={ICONS.close} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <WatermarkSection watermark={watermark} />
-          <OutputSection output={output} onClear={clearPages} disabled={!pages.length} />
-        </div>
-      </aside>
-
-      <section className="preview-column">
-        <div className="column-toolbar">
-          <div>
-            <p className="eyebrow">公众号内容</p>
-            <h1>HTML 预览</h1>
+                  <span className="mt-0.5 block text-[10px] text-faint">
+                    第 {page.pageNumber} 页 · {index + 1}
+                  </span>
+                </span>
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  title="删除此页"
+                  aria-label="删除此页"
+                  className="hover:bg-danger-soft hover:text-danger"
+                  onClick={() =>
+                    setPages((previous) => previous.filter((item) => item.id !== page.id))
+                  }
+                >
+                  <X aria-hidden="true" className="size-3.5" />
+                </Button>
+              </div>
+            ))}
+            {pages.length === 0 ? (
+              <p className="py-5 text-center text-[11px] text-faint">
+                暂无页面 · 导入 PDF 后开始排版
+              </p>
+            ) : null}
           </div>
-          <span className={`status-dot${pages.length ? ' is-ready' : ''}`}>
-            {pages.length ? `${pages.length} 页已就绪` : '等待 PDF'}
-          </span>
-        </div>
-        <div className="preview-scroll">
-          <article className="article-preview">
+        </Section>
+
+        <WatermarkSection watermark={watermark} />
+        <OutputSection output={output} onClear={clearPages} disabled={!pages.length} />
+      </Rail>
+
+      <StageColumn
+        eyebrow="公众号内容"
+        title="HTML 预览"
+        statusState={pages.length ? 'ready' : 'idle'}
+        status={pages.length ? `${pages.length} 页已就绪` : '等待 PDF'}
+      >
+        <div
+          data-scroll="preview"
+          className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-[clamp(10px,5vw,76px)] pt-[clamp(18px,4vw,48px)] pb-17.5 max-[768px]:px-2 max-[768px]:pt-3.5 max-[768px]:pb-10.5"
+        >
+          <article className="mx-auto min-h-86 w-[min(100%,677px)] rounded-[3px] border border-line-strong/70 bg-paper p-[clamp(14px,2.5vw,28px)] shadow-card max-[768px]:rounded-[2px] max-[768px]:p-3">
             {header.enabled && headerPreviewUrl ? (
               <div
-                className="preview-page preview-header"
-                style={{ ['--page-aspect' as string]: `${100 / ratioOf(settings.header)}%` }}
+                className="aspect-box mb-5 rounded-[2px] bg-[#eceee9]"
+                style={{ '--page-aspect': `${100 / ratioOf(settings.header)}%` } as CSSProperties}
               >
-                <img src={headerPreviewUrl} alt="试卷信息头图" />
+                <img
+                  src={headerPreviewUrl}
+                  alt="试卷信息头图"
+                  className="absolute inset-0 size-full object-fill"
+                />
               </div>
             ) : null}
             {pages.length === 0 ? (
-              <div className="article-empty">
-                <div className="empty-glyph">PDF</div>
-                <p>导入手写 PDF 后在这里预览</p>
+              <div className="grid min-h-80 place-content-center justify-items-center gap-3.5 text-center text-faint">
+                <div className="grid h-16.5 w-13.5 place-items-center rounded-md border border-[#b9dbc7] bg-accent-wash text-[11px] font-bold tracking-[0.08em] text-accent-strong">
+                  PDF
+                </div>
+                <p className="text-[13px]">导入手写 PDF 后在这里预览</p>
               </div>
             ) : (
               pages.map((page) => {
@@ -296,63 +349,56 @@ export function ArticlePanel() {
             )}
           </article>
         </div>
-      </section>
+      </StageColumn>
 
-      <aside className="right-rail publish-rail">
-        <section className="publish-card">
-          <span className="eyebrow">发布</span>
-          <h2>复制到公众号</h2>
-          <p>
+      <Rail side="right">
+        <Card>
+          <Eyebrow>发布</Eyebrow>
+          <h2 className="mt-1 mb-2 text-lg font-bold tracking-tight text-ink">复制到公众号</h2>
+          <p className="mb-4.5 text-xs leading-relaxed text-muted">
             {pages.length
               ? `${header.enabled ? '头图 + ' : ''}${pages.length} 页将按当前顺序转为高清图片。`
               : '图片会以 HTML 富文本形式复制。'}
           </p>
-          <PrimaryButton icon={ICONS.copy} onClick={copyAll}>
+          <Button variant="primary" size="block" onClick={copyAll}>
+            <Copy aria-hidden="true" className="size-4" />
             一键复制全部
-          </PrimaryButton>
-          <SecondaryButton icon={ICONS.download} onClick={downloadZip}>
+          </Button>
+          <Button variant="secondary" size="block" className="mt-2.5" onClick={downloadZip}>
+            <Download aria-hidden="true" className="size-4" />
             下载图片包
-          </SecondaryButton>
-        </section>
-        <section className="publish-info">
-          <div className="info-row">
-            <span>头图</span>
-            <strong>{header.enabled ? '附在推文开头' : '已关闭'}</strong>
-          </div>
-          <div className="info-row">
-            <span>处理方式</span>
-            <strong>仅本地</strong>
-          </div>
-          <div className="info-row">
-            <span>页面顺序</span>
-            <strong>拖动调整</strong>
-          </div>
-          <div className="info-row">
-            <span>正文宽度</span>
-            <strong>{ARTICLE_WIDTH} px</strong>
-          </div>
-        </section>
-      </aside>
+          </Button>
+        </Card>
+        <div className="mt-6 px-1">
+          <InfoRow label="头图" value={header.enabled ? '附在推文开头' : '已关闭'} />
+          <InfoRow label="处理方式" value="仅本地" />
+          <InfoRow label="页面顺序" value="拖动调整" />
+          <InfoRow label="正文宽度" value={`${ARTICLE_WIDTH} px`} />
+        </div>
+      </Rail>
     </>
   );
 }
 
 /* ---------------- 子区块 ---------------- */
 
-function WatermarkSection({
-  watermark,
-}: {
-  watermark: WatermarkSettings;
-}) {
+function WatermarkSection({ watermark }: { watermark: WatermarkSettings }) {
   const set = (patch: Partial<WatermarkSettings>) => patchSettings({ article: { watermark: patch } });
   return (
-    <section className="control-section">
-      <div className="section-heading">
-        <span>文字水印</span>
-        <Switch title="启用水印" checked={watermark.enabled} onChange={(enabled) => set({ enabled })} />
-      </div>
+    <Section>
+      <SectionHeading
+        trailing={
+          <Switch
+            label="启用水印"
+            checked={watermark.enabled}
+            onCheckedChange={(enabled) => set({ enabled })}
+          />
+        }
+      >
+        文字水印
+      </SectionHeading>
       <Field label="内容">
-        <input
+        <Input
           type="text"
           maxLength={40}
           value={watermark.text}
@@ -362,34 +408,33 @@ function WatermarkSection({
         />
       </Field>
       <FieldGrid>
-        <Field label="字号" hint={<output>{watermark.size}%</output>}>
-          <Slider
-            value={watermark.size}
-            min={4}
-            max={16}
-            step={0.5}
-            onChange={(size) => set({ size })}
-          />
-        </Field>
-        <Field label="透明度" hint={<output>{watermark.opacity}%</output>}>
-          <Slider
-            value={watermark.opacity}
-            min={4}
-            max={38}
-            onChange={(opacity) => set({ opacity })}
-          />
-        </Field>
+        <SliderField
+          label="字号"
+          suffix="%"
+          value={watermark.size}
+          min={4}
+          max={16}
+          step={0.5}
+          onValueChange={(size) => set({ size })}
+        />
+        <SliderField
+          label="透明度"
+          suffix="%"
+          value={watermark.opacity}
+          min={4}
+          max={38}
+          onValueChange={(opacity) => set({ opacity })}
+        />
       </FieldGrid>
       <Field label="颜色">
-        <input
-          type="color"
+        <ColorInput
           value={watermark.color}
           disabled={!watermark.enabled}
           onChange={(event) => set({ color: event.target.value })}
         />
       </Field>
       <FixedRow label="位置与倾斜" value="居中 · 45°" />
-    </section>
+    </Section>
   );
 }
 
@@ -404,42 +449,50 @@ function OutputSection({
 }) {
   const set = (patch: Partial<typeof output>) => patchSettings({ article: { output: patch } });
   return (
-    <section className="control-section">
-      <div className="section-heading">
-        <span>输出图片</span>
-      </div>
+    <Section>
+      <SectionHeading>输出图片</SectionHeading>
       <FieldGrid>
         <Field label="清晰度">
-          <SelectField
+          <Select
             value={String(output.scale)}
-            options={[
-              { value: '4', label: '4 倍' },
-              { value: '3', label: '3 倍' },
-              { value: '2', label: '2 倍' },
-            ]}
-            onChange={(scale) => set({ scale: Number(scale) })}
-          />
+            onChange={(event) => set({ scale: Number(event.target.value) })}
+          >
+            <option value="4">4 倍</option>
+            <option value="3">3 倍</option>
+            <option value="2">2 倍</option>
+          </Select>
         </Field>
         <Field label="格式">
-          <SelectField
+          <Select
             value={output.format}
-            options={[
-              { value: 'png', label: 'PNG' },
-              { value: 'jpeg', label: 'JPEG' },
-            ]}
-            onChange={(format) => set({ format })}
-          />
+            onChange={(event) => set({ format: event.target.value as 'png' | 'jpeg' })}
+          >
+            <option value="png">PNG</option>
+            <option value="jpeg">JPEG</option>
+          </Select>
         </Field>
       </FieldGrid>
       {output.format === 'jpeg' ? (
-        <Field label="JPEG 质量" hint={<output>{output.quality}%</output>}>
-          <Slider value={output.quality} min={50} max={100} onChange={(quality) => set({ quality })} />
-        </Field>
+        <SliderField
+          label="JPEG 质量"
+          suffix="%"
+          value={output.quality}
+          min={50}
+          max={100}
+          onValueChange={(quality) => set({ quality })}
+        />
       ) : null}
-      <TextButton danger onClick={onClear}>
+      <Button
+        variant="danger"
+        size="sm"
+        className="mt-1 w-full justify-start px-0 hover:bg-transparent"
+        disabled={disabled}
+        onClick={onClear}
+      >
+        <Trash2 aria-hidden="true" className="size-3.5" />
         清空全部页面
-      </TextButton>
-    </section>
+      </Button>
+    </Section>
   );
 }
 

@@ -1,11 +1,22 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { toast } from '@/lib/feedback';
-import { PALETTES, type Palette } from '@/lib/palettes';
+import { matchedPalette, PALETTES, type Palette } from '@/lib/palettes';
 import { patchSettings, setPosterImage, useStore, type PosterKind } from '@/lib/store';
-import { RATIO_OPTIONS, type BackdropMode, type FontKind, type PosterRatio } from '@/lib/settings';
-import { ColorField, Field, FieldGrid, PaletteGrid, Segmented, SelectField, Slider } from './ui';
+import { RATIO_OPTIONS, type Backdrop, type BackdropMode, type FontKind, type PosterRatio } from '@/lib/settings';
+import { cn } from '@/lib/utils';
+import {
+  ColorInput,
+  Field,
+  FieldGrid,
+  FileButton,
+  Section,
+  SectionHeading,
+  Segmented,
+  Select,
+  SliderField,
+} from './ui';
 
 const BACKDROP_MODES: { value: BackdropMode; label: string }[] = [
   { value: 'solid', label: '纯色' },
@@ -34,11 +45,12 @@ export function PaletteSection({ kind }: { kind: PosterKind }) {
     });
 
   return (
-    <section className="control-section">
-      <div className="section-heading">
-        <span>配色主题</span>
-        <span className="section-note-inline">{PALETTES.length} 组</span>
-      </div>
+    <Section>
+      <SectionHeading
+        trailing={<span className="text-[11px] font-semibold text-faint">{PALETTES.length} 组</span>}
+      >
+        配色主题
+      </SectionHeading>
       <PaletteGrid backdrop={style} onPick={apply} />
 
       <Segmented
@@ -49,63 +61,103 @@ export function PaletteSection({ kind }: { kind: PosterKind }) {
       />
 
       <Field label="强调色">
-        <ColorField value={style.accent} onChange={(accent) => patchSettings({ [kind]: { accent } })} />
+        <ColorInput
+          value={style.accent}
+          onChange={(event) => patchSettings({ [kind]: { accent: event.target.value } })}
+        />
       </Field>
 
       <FieldGrid>
         <Field label={style.mode === 'gradient' ? '起始色' : '底色'}>
-          <ColorField value={style.colorA} onChange={(colorA) => patchSettings({ [kind]: { colorA } })} />
+          <ColorInput
+            value={style.colorA}
+            onChange={(event) => patchSettings({ [kind]: { colorA: event.target.value } })}
+          />
         </Field>
         {style.mode === 'gradient' || style.mode === 'glow' ? (
           <Field label="第二色">
-            <ColorField value={style.colorB} onChange={(colorB) => patchSettings({ [kind]: { colorB } })} />
+            <ColorInput
+              value={style.colorB}
+              onChange={(event) => patchSettings({ [kind]: { colorB: event.target.value } })}
+            />
           </Field>
         ) : null}
       </FieldGrid>
 
       {style.mode === 'gradient' ? (
-        <Field label="渐变角度" hint={<output>{style.angle}°</output>}>
-          <Slider
-            value={style.angle}
-            min={0}
-            max={360}
-            step={5}
-            onChange={(angle) => patchSettings({ [kind]: { angle } })}
-          />
-        </Field>
+        <SliderField
+          label="渐变角度"
+          suffix="°"
+          value={style.angle}
+          min={0}
+          max={360}
+          step={5}
+          onValueChange={(angle) => patchSettings({ [kind]: { angle } })}
+        />
       ) : null}
 
       {style.mode === 'image' ? (
         <>
           <Field label="背景图片">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) loadBackground(kind, file);
-                event.target.value = '';
-              }}
-            />
+            <FileButton accept="image/*" onPick={(file) => loadBackground(kind, file)}>
+              选择图片
+            </FileButton>
           </Field>
-          <Field label="遮罩" hint={<output>{style.dim}%</output>}>
-            <Slider
-              value={style.dim}
-              min={0}
-              max={76}
-              onChange={(dim) => patchSettings({ [kind]: { dim } })}
-            />
-          </Field>
+          <SliderField
+            label="遮罩"
+            suffix="%"
+            value={style.dim}
+            min={0}
+            max={76}
+            onValueChange={(dim) => patchSettings({ [kind]: { dim } })}
+          />
         </>
       ) : null}
 
       <Field label="文字色">
-        <ColorField
+        <ColorInput
           value={style.textColor}
-          onChange={(textColor) => patchSettings({ [kind]: { textColor } })}
+          onChange={(event) => patchSettings({ [kind]: { textColor: event.target.value } })}
         />
       </Field>
-    </section>
+    </Section>
+  );
+}
+
+/** 18 组主题各占一格，用该组的渐变做底、强调色做一道短横线。 */
+function PaletteGrid({ backdrop, onPick }: { backdrop: Backdrop; onPick: (palette: Palette) => void }) {
+  const active = matchedPalette(backdrop);
+  return (
+    <div role="group" aria-label="配色主题" className="mb-3.5 grid grid-cols-6 gap-1.5">
+      {PALETTES.map((palette) => {
+        const isActive = active?.id === palette.id;
+        return (
+          <button
+            key={palette.id}
+            type="button"
+            title={palette.name}
+            aria-label={`配色：${palette.name}`}
+            aria-pressed={isActive}
+            onClick={() => onPick(palette)}
+            style={
+              {
+                '--chip-a': palette.colorA,
+                '--chip-b': palette.colorB,
+                '--chip-accent': palette.accent,
+              } as CSSProperties
+            }
+            className={cn(
+              'relative h-8.5 rounded-sm border-2 border-black/6',
+              'bg-[linear-gradient(135deg,var(--chip-a),var(--chip-b))]',
+              'transition-[transform,box-shadow] duration-150',
+              "before:absolute before:right-[22%] before:bottom-[7px] before:left-[22%] before:h-0.75 before:rounded-full before:bg-[var(--chip-accent)] before:content-['']",
+              'hover:-translate-y-0.5 hover:shadow-card',
+              isActive && 'border-ink ring-2 ring-ink ring-offset-2 ring-offset-paper',
+            )}
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -134,41 +186,50 @@ export function StyleSection({ kind, children }: { kind: PosterKind; children?: 
   const ratios = RATIO_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
 
   return (
-    <section className="control-section">
-      <div className="section-heading">
-        <span>尺寸与版式</span>
-      </div>
+    <Section>
+      <SectionHeading>尺寸与版式</SectionHeading>
       <FieldGrid>
         <Field label="宽度">
-          <SelectField
+          <Select
             value={String(style.width)}
-            options={[
-              { value: '900', label: '900 px' },
-              { value: '1200', label: '1200 px' },
-              { value: '1600', label: '1600 px' },
-              { value: '2000', label: '2000 px' },
-            ]}
-            onChange={(width) => patchSettings({ [kind]: { width: Number(width) } })}
-          />
+            onChange={(event) => patchSettings({ [kind]: { width: Number(event.target.value) } })}
+          >
+            <option value="900">900 px</option>
+            <option value="1200">1200 px</option>
+            <option value="1600">1600 px</option>
+            <option value="2000">2000 px</option>
+          </Select>
         </Field>
         {kind === 'header' ? (
           <Field label="比例">
-            <SelectField
+            <Select
               value={style.ratio}
-              options={ratios}
-              onChange={(ratio: PosterRatio) => patchSettings({ [kind]: { ratio } })}
-            />
+              onChange={(event) =>
+                patchSettings({ [kind]: { ratio: event.target.value as PosterRatio } })
+              }
+            >
+              {ratios.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
           </Field>
         ) : null}
       </FieldGrid>
       <Field label="字体">
-        <SelectField
+        <Select
           value={style.font}
-          options={FONTS}
-          onChange={(font) => patchSettings({ [kind]: { font } })}
-        />
+          onChange={(event) => patchSettings({ [kind]: { font: event.target.value as FontKind } })}
+        >
+          {FONTS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
       </Field>
       {children}
-    </section>
+    </Section>
   );
 }
