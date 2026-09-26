@@ -18,7 +18,7 @@ export interface HeaderInput {
   image?: BackdropImage | null;
 }
 
-export type HeaderRowKind = 'bar' | 'title' | 'meta' | 'hint';
+export type HeaderRowKind = 'bar' | 'subtitle' | 'title' | 'meta' | 'hint' | 'footer';
 
 export interface HeaderRow {
   kind: HeaderRowKind;
@@ -40,6 +40,9 @@ export interface HeaderLayout {
   titleSize: number;
   titleLines: string[];
   titleLineHeight: number;
+  subtitleSize: number;
+  subtitleLines: string[];
+  subtitleLineHeight: number;
   fields: HeaderField[];
   fieldWidth: number;
   fieldSizes: number[];
@@ -52,6 +55,9 @@ export interface HeaderLayout {
   hintLines: string[];
   hintLineHeight: number;
   hintWidth: number;
+  footerSize: number;
+  footerLines: string[];
+  footerLineHeight: number;
   rows: HeaderRow[];
 }
 
@@ -114,6 +120,27 @@ export function measureHeader(
   const titleLineHeight = Math.round(titleFit.size * 1.26);
   const titleHeight = titleFit.size + titleLineHeight * (titleLines.length - 1);
 
+  // —— 副标题：用于科目、栏目或学期说明 ——
+  const subtitleText = content.subtitle.trim();
+  const subtitleFit = subtitleText
+    ? fitLines(ctx, subtitleText, {
+        family,
+        weight: 600,
+        tracking: Math.max(0, Math.round(width * 0.002)),
+        maxWidth: inner * 0.9,
+        maxSize: px(0.042, 14),
+        minSize: Math.round(width * 0.027),
+        maxLines: 2,
+      })
+    : { size: px(0.042, 14), lines: [] as string[], overflow: false };
+  const subtitleLines = subtitleFit.overflow
+    ? wrapTrackedText(ctx, subtitleText, inner * 0.9, Math.max(0, Math.round(width * 0.002))).slice(0, 2)
+    : subtitleFit.lines;
+  const subtitleLineHeight = Math.round(subtitleFit.size * 1.35);
+  const subtitleHeight = subtitleLines.length
+    ? subtitleLineHeight * subtitleLines.length
+    : 0;
+
   // —— 信息组：时间 / 难度 / 页数，各占一列 ——
   const fields = headerFields(content, pageCount);
   const labelSize = Math.max(Math.round(width * 0.0355), px(0.04, 13));
@@ -156,13 +183,34 @@ export function measureHeader(
     ? Math.min(inner, Math.max(...hintLines.map((line) => ctx.measureText(line).width)) + hintPadX * 2)
     : 0;
 
+  // —— 底部来源：字号更小，但仍保持手机端的最低可读尺寸 ——
+  const footerText = content.footer.trim();
+  const footerFit = footerText
+    ? fitLines(ctx, footerText, {
+        family,
+        weight: 600,
+        tracking: 0,
+        maxWidth: inner * 0.84,
+        maxSize: px(0.032, 12),
+        minSize: Math.round(width * 0.024),
+        maxLines: 2,
+      })
+    : { size: px(0.032, 12), lines: [] as string[], overflow: false };
+  const footerLines = footerFit.overflow
+    ? wrapTrackedText(ctx, footerText, inner * 0.84, 0).slice(0, 2)
+    : footerFit.lines;
+  const footerLineHeight = Math.round(footerFit.size * 1.35);
+  const footerHeight = footerLines.length ? footerLineHeight * footerLines.length : 0;
+
   // —— 纵向排布：块之间尽量撑开，块数少时留白更大 ——
   const rows: HeaderRow[] = [
     { kind: 'bar', top: 0, height: px(0.013, 4) },
-    { kind: 'title', top: 0, height: titleHeight },
   ];
+  if (subtitleHeight) rows.push({ kind: 'subtitle', top: 0, height: subtitleHeight });
+  rows.push({ kind: 'title', top: 0, height: titleHeight });
   if (metaHeight) rows.push({ kind: 'meta', top: 0, height: metaHeight });
   if (hintHeight) rows.push({ kind: 'hint', top: 0, height: hintHeight });
+  if (footerHeight) rows.push({ kind: 'footer', top: 0, height: footerHeight });
 
   const available = height - pad * 2;
   const contentHeight = rows.reduce((sum, row) => sum + row.height, 0);
@@ -190,6 +238,9 @@ export function measureHeader(
     titleSize: titleFit.size,
     titleLines,
     titleLineHeight,
+    subtitleSize: subtitleFit.size,
+    subtitleLines,
+    subtitleLineHeight,
     fields,
     fieldWidth,
     fieldSizes,
@@ -202,6 +253,9 @@ export function measureHeader(
     hintLines,
     hintLineHeight,
     hintWidth,
+    footerSize: footerFit.size,
+    footerLines,
+    footerLineHeight,
     rows,
   };
 }
@@ -226,12 +280,33 @@ export function drawHeader(
   const ink = style.textColor;
   const accent = style.accent || style.textColor;
   const row = (kind: HeaderRowKind) => layout.rows.find((item) => item.kind === kind)!;
+  const centered = content.align === 'center';
+  const anchor = centered ? width / 2 : layout.pad;
+  const textAlign = centered ? 'center' : 'left';
 
   // 强调条
   const bar = row('bar');
   ctx.fillStyle = accent;
-  roundRect(ctx, layout.pad, bar.top, Math.round(width * 0.09), bar.height, bar.height / 2);
+  const barWidth = Math.round(width * 0.09);
+  roundRect(ctx, centered ? anchor - barWidth / 2 : layout.pad, bar.top, barWidth, bar.height, bar.height / 2);
   ctx.fill();
+
+  // 副标题
+  const subtitleRow = layout.rows.find((item) => item.kind === 'subtitle');
+  if (subtitleRow) {
+    ctx.fillStyle = hexToRgba(ink, 0.58);
+    ctx.font = `600 ${layout.subtitleSize}px ${layout.family}`;
+    layout.subtitleLines.forEach((line, index) => {
+      drawTrackedText(
+        ctx,
+        line,
+        anchor,
+        subtitleRow.top + layout.subtitleSize * 0.82 + layout.subtitleLineHeight * index,
+        Math.max(0, Math.round(width * 0.002)),
+        textAlign,
+      );
+    });
+  }
 
   // 标题
   const titleRow = row('title');
@@ -241,10 +316,10 @@ export function drawHeader(
     drawTrackedText(
       ctx,
       line,
-      layout.pad,
+      anchor,
       titleRow.top + layout.titleSize * 0.82 + layout.titleLineHeight * index,
       layout.tracking,
-      'left',
+      textAlign,
     );
   });
 
@@ -252,13 +327,15 @@ export function drawHeader(
   const metaRow = layout.rows.find((item) => item.kind === 'meta');
   if (metaRow) {
     layout.fields.forEach((field, index) => {
-      const x = layout.pad + layout.fieldWidth * index;
+      const x = centered
+        ? layout.pad + layout.fieldWidth * index + layout.fieldWidth / 2
+        : layout.pad + layout.fieldWidth * index;
       ctx.fillStyle = hexToRgba(ink, 0.55);
       ctx.font = `600 ${layout.labelSize}px ${layout.family}`;
-      ctx.fillText(field.label, x, metaRow.top + layout.labelSize * 0.82);
+      drawTrackedText(ctx, field.label, x, metaRow.top + layout.labelSize * 0.82, 0, textAlign);
       ctx.fillStyle = ink;
       ctx.font = `700 ${layout.fieldSizes[index]}px ${layout.family}`;
-      ctx.fillText(field.value, x, metaRow.top + metaRow.height - layout.valueSize * 0.18);
+      drawTrackedText(ctx, field.value, x, metaRow.top + metaRow.height - layout.valueSize * 0.18, 0, textAlign);
     });
   }
 
@@ -266,15 +343,33 @@ export function drawHeader(
   const hintRow = layout.rows.find((item) => item.kind === 'hint');
   if (hintRow) {
     ctx.fillStyle = hexToRgba(accent, 0.16);
-    roundRect(ctx, layout.pad, hintRow.top, layout.hintWidth, hintRow.height, Math.round(layout.hintSize * 0.5));
+    const hintX = centered ? anchor - layout.hintWidth / 2 : layout.pad;
+    roundRect(ctx, hintX, hintRow.top, layout.hintWidth, hintRow.height, Math.round(layout.hintSize * 0.5));
     ctx.fill();
     ctx.fillStyle = accent;
     ctx.font = `600 ${layout.hintSize}px ${layout.family}`;
+    ctx.textAlign = 'left';
     layout.hintLines.forEach((line, index) => {
       ctx.fillText(
         line,
-        layout.pad + layout.hintPadX,
+        hintX + layout.hintPadX,
         hintRow.top + layout.hintPadY + layout.hintSize * 0.82 + layout.hintLineHeight * index,
+      );
+    });
+  }
+
+  const footerRow = layout.rows.find((item) => item.kind === 'footer');
+  if (footerRow) {
+    ctx.fillStyle = hexToRgba(ink, 0.5);
+    ctx.font = `600 ${layout.footerSize}px ${layout.family}`;
+    layout.footerLines.forEach((line, index) => {
+      drawTrackedText(
+        ctx,
+        line,
+        anchor,
+        footerRow.top + layout.footerSize * 0.82 + layout.footerLineHeight * index,
+        0,
+        textAlign,
       );
     });
   }

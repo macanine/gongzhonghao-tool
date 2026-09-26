@@ -55,6 +55,28 @@ describe('配置迁移', () => {
     expect(migrated.header.accent).toBe('#7ee0b8');
   });
 
+  it('v6 默认深色主题升级为明亮主题但保留尺寸和字体', () => {
+    const migrated = migrateSettings({
+      version: 6,
+      settings: {
+        header: {
+          ...DEFAULT_SETTINGS.header,
+          width: 1600,
+          font: 'sans',
+          mode: 'glow',
+          colorA: '#06372e',
+          colorB: '#0f8a68',
+          accent: '#7ff0c4',
+          textColor: '#f0fdf8',
+        },
+      },
+    });
+    expect(migrated.header.colorA).toBe(DEFAULT_SETTINGS.header.colorA);
+    expect(migrated.header.mode).toBe('gradient');
+    expect(migrated.header.width).toBe(1600);
+    expect(migrated.header.font).toBe('sans');
+  });
+
   it('没带版本号的裸配置视为最老版本，会跑一次迁移', () => {
     const migrated = migrateSettings({ header: legacyHeader });
     expect(migrated.header.ratio).toBe('4:5');

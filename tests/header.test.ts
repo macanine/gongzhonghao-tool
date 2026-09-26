@@ -137,6 +137,27 @@ describe('头图排版', () => {
     expect(layout.fields).toEqual([]);
     expect(layout.hintLines).toEqual([]);
   });
+
+  it('支持副标题、来源和居中对齐', () => {
+    const content = makeContent({
+      subtitle: '七年级数学 · 秋季资料',
+      footer: '纸页工作台整理',
+      align: 'center',
+    });
+    const { layout, lines, height } = render(makeStyle(), content);
+    expect(layout.rows.map((row) => row.kind)).toEqual([
+      'bar',
+      'subtitle',
+      'title',
+      'meta',
+      'hint',
+      'footer',
+    ]);
+    expect(layout.subtitleLines.join('')).toContain('秋季资料');
+    expect(layout.footerLines.join('')).toBe('纸页工作台整理');
+    expect(Math.min(...lines.map((line) => line.size))).toBeGreaterThanOrEqual(12);
+    expect(Math.max(...lines.map((line) => line.y))).toBeLessThan(height);
+  });
 });
 
 describe('换行质量', () => {

@@ -17,6 +17,7 @@ import {
   Section,
   SectionHeading,
   SectionNote,
+  Segmented,
   StageColumn,
   Switch,
   Textarea,
@@ -58,6 +59,15 @@ export function HeaderPanel() {
               onChange={(event) => set({ title: event.target.value })}
             />
           </Field>
+          <Field label="副标题（可选）">
+            <Input
+              type="text"
+              maxLength={32}
+              value={content.subtitle}
+              placeholder="科目 · 年级 · 学期"
+              onChange={(event) => set({ subtitle: event.target.value })}
+            />
+          </Field>
           <FieldGrid>
             <Field label="时间">
               <Input
@@ -94,6 +104,26 @@ export function HeaderPanel() {
               value={content.hint}
               placeholder="需要完整电子版？评论区留言获取链接"
               onChange={(event) => set({ hint: event.target.value })}
+            />
+          </Field>
+          <Field label="底部来源（可选）">
+            <Input
+              type="text"
+              maxLength={32}
+              value={content.footer}
+              placeholder="公众号名称 / 资料来源"
+              onChange={(event) => set({ footer: event.target.value })}
+            />
+          </Field>
+          <Field label="内容对齐">
+            <Segmented
+              ariaLabel="头图内容对齐"
+              value={content.align}
+              options={[
+                { value: 'left', label: '左对齐' },
+                { value: 'center', label: '居中' },
+              ]}
+              onChange={(align) => set({ align: align as HeaderContent['align'] })}
             />
           </Field>
         </Section>

@@ -34,11 +34,17 @@ export interface PosterStyle extends Backdrop {
 export interface HeaderContent {
   enabled: boolean;
   title: string;
+  /** 可选的栏目/科目说明，显示在标题上方。 */
+  subtitle: string;
   date: string;
   difficulty: string;
   /** 留空时按导入的 PDF 页数自动生成。 */
   pages: string;
   hint: string;
+  /** 可选的来源或账号标识，显示在头图底部。 */
+  footer: string;
+  /** 标题与信息组的对齐方式。 */
+  align: 'left' | 'center';
 }
 
 export interface WatermarkSettings {
@@ -75,7 +81,7 @@ export interface Settings {
 }
 
 /** 结构版本：每次改动默认值形态时 +1，迁移逻辑据此判断要不要跑。 */
-export const CONFIG_VERSION = 6;
+export const CONFIG_VERSION = 7;
 
 export const STORAGE_KEY = 'paper-workbench-settings-v3';
 
@@ -115,10 +121,13 @@ export const DEFAULT_SETTINGS: Settings = {
     header: {
       enabled: true,
       title: '七年级数学 · 期中模拟卷',
+      subtitle: '',
       date: '2026.09',
       difficulty: '中等',
       pages: '共 8 页',
       hint: '需要完整电子版？评论区留言获取链接',
+      footer: '',
+      align: 'left',
     },
     watermark: {
       enabled: true,
@@ -132,26 +141,26 @@ export const DEFAULT_SETTINGS: Settings = {
   header: {
     width: 1200,
     ratio: '4:5',
-    mode: 'glow',
-    colorA: '#06372e',
-    colorB: '#0f8a68',
-    accent: '#7ff0c4',
+    mode: 'gradient',
+    colorA: '#f7fbff',
+    colorB: '#dbeafe',
+    accent: '#2563eb',
     angle: 135,
-    dim: 40,
+    dim: 0,
     font: 'serif',
-    textColor: '#f0fdf8',
+    textColor: '#14263d',
   },
   cover: {
     width: 900,
     ratio: '4:3',
-    mode: 'glow',
-    colorA: '#1a0b2e',
-    colorB: '#d946ef',
-    accent: '#22d3ee',
+    mode: 'gradient',
+    colorA: '#fffaf0',
+    colorB: '#fde7c7',
+    accent: '#c2410c',
     angle: 135,
-    dim: 32,
+    dim: 0,
     font: 'serif',
-    textColor: '#fdf4ff',
+    textColor: '#3a2410',
     title: '手写笔记',
     subtitle: '阅读、摘录与思考',
   },
@@ -242,6 +251,43 @@ export function migrateSettings(value: unknown): Settings {
       });
     }
     if (merged.header.ratio === '4:3') merged.header.ratio = DEFAULT_SETTINGS.header.ratio;
+  }
+
+  // v7：头图与封面默认改为明亮纸面主题；仅替换上一版的默认配色，
+  // 用户主动选择过的颜色继续保留。
+  if (version < 7) {
+    const header = payload.header;
+    if (
+      isPlainObject(header) &&
+      header.colorA === '#06372e' &&
+      header.colorB === '#0f8a68' &&
+      header.accent === '#7ff0c4'
+    ) {
+      Object.assign(merged.header, {
+        mode: DEFAULT_SETTINGS.header.mode,
+        colorA: DEFAULT_SETTINGS.header.colorA,
+        colorB: DEFAULT_SETTINGS.header.colorB,
+        accent: DEFAULT_SETTINGS.header.accent,
+        dim: DEFAULT_SETTINGS.header.dim,
+        textColor: DEFAULT_SETTINGS.header.textColor,
+      });
+    }
+    const cover = payload.cover;
+    if (
+      isPlainObject(cover) &&
+      cover.colorA === '#1a0b2e' &&
+      cover.colorB === '#d946ef' &&
+      cover.accent === '#22d3ee'
+    ) {
+      Object.assign(merged.cover, {
+        mode: DEFAULT_SETTINGS.cover.mode,
+        colorA: DEFAULT_SETTINGS.cover.colorA,
+        colorB: DEFAULT_SETTINGS.cover.colorB,
+        accent: DEFAULT_SETTINGS.cover.accent,
+        dim: DEFAULT_SETTINGS.cover.dim,
+        textColor: DEFAULT_SETTINGS.cover.textColor,
+      });
+    }
   }
 
   return merged;
