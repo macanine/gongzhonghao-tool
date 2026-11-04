@@ -17,7 +17,7 @@ export function Rail({
   return (
     <aside
       className={cn(
-        'min-h-0 min-w-0 overflow-hidden bg-paper/70',
+        'min-h-0 min-w-0 overflow-hidden bg-paper',
         side === 'left' ? 'border-r border-line' : 'border-l border-line max-[1200px]:hidden',
         className,
       )}
@@ -26,7 +26,7 @@ export function Rail({
         data-scroll="rail"
         className={cn(
           'scrollbar-slim h-full overflow-y-auto overscroll-contain',
-          side === 'left' ? 'px-4.5 pt-5 pb-9' : 'p-5',
+          side === 'left' ? 'px-5 pt-6 pb-10 max-[768px]:px-4 max-[768px]:pt-5' : 'p-6',
         )}
       >
         {children}
@@ -39,7 +39,7 @@ export function Section({ className, children }: { className?: string; children:
   return (
     <section
       className={cn(
-        'mb-5 border-b border-line pb-5 last:mb-0 last:border-b-0 last:pb-0',
+        'mb-6 border-b border-line pb-6 last:mb-0 last:border-b-0 last:pb-0',
         className,
       )}
     >
@@ -56,12 +56,12 @@ export function SectionHeading({
   trailing?: ReactNode;
 }) {
   return (
-    <div className="mb-3.5 flex min-h-6.5 items-center gap-2">
+    <div className="mb-4 flex min-h-6.5 items-center gap-2">
       <span
         aria-hidden="true"
-        className="h-3.5 w-0.75 shrink-0 rounded-full bg-accent"
+        className="h-4 w-1 shrink-0 rounded-full bg-accent"
       />
-      <h2 className="mr-auto text-[13px] font-semibold tracking-tight text-ink">{children}</h2>
+      <h2 className="mr-auto text-[13px] font-bold tracking-tight text-ink">{children}</h2>
       {trailing}
     </div>
   );
@@ -93,9 +93,9 @@ export function StatusDot({
   children: ReactNode;
 }) {
   const tone = {
-    idle: 'bg-faint shadow-[0_0_0_3px_rgba(152,165,157,0.18)]',
+    idle: 'bg-faint ring-3 ring-faint/20',
     working: 'bg-warn animate-blink',
-    ready: 'bg-accent shadow-[0_0_0_3px_rgba(22,118,83,0.16)]',
+    ready: 'bg-accent ring-3 ring-accent/16',
   }[state];
 
   return (
@@ -110,7 +110,7 @@ export function Card({ className, children }: { className?: string; children: Re
   return (
     <section
       className={cn(
-        'rounded-lg border border-line bg-gradient-to-br from-paper to-accent-wash p-4.5 shadow-card',
+        'rounded-xl border border-line bg-paper p-5 shadow-card',
         className,
       )}
     >
@@ -137,7 +137,7 @@ export function FixedRow({ label, value }: { label: string; value: ReactNode }) 
   );
 }
 
-/** 中栏：一条工具条 + 下面可滚动的工作区。头图和封面共用。 */
+/** 中栏：一条工具条 + 下面可滚动的工作区。三个工作区共用。 */
 export function StageColumn({
   eyebrow,
   title,
@@ -155,14 +155,14 @@ export function StageColumn({
     <section className="flex min-h-0 min-w-0 flex-col bg-canvas">
       <div
         className={cn(
-          'flex items-center justify-between gap-4 border-b border-line bg-paper/64',
-          'min-h-20.5 px-[clamp(18px,3vw,38px)] py-4.5',
+          'flex items-center justify-between gap-4 border-b border-line bg-paper',
+          'min-h-22 px-[clamp(20px,3vw,42px)] py-5',
           'max-[768px]:min-h-17.5 max-[768px]:px-4 max-[768px]:py-3.5',
         )}
       >
         <div className="min-w-0">
           <Eyebrow>{eyebrow}</Eyebrow>
-          <h1 className="text-[clamp(16px,2vw,20px)] font-bold tracking-tight text-ink max-[768px]:text-[17px]">
+          <h1 className="text-[clamp(17px,2vw,22px)] font-bold tracking-tight text-ink max-[768px]:text-[17px]">
             {title}
           </h1>
         </div>

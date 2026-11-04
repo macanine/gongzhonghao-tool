@@ -52,7 +52,7 @@ export function CoverPanel() {
             ref={canvasRef}
             width={size.width}
             height={size.height}
-            className="block h-auto w-[min(100%,900px)] rounded-sm bg-[#e9ece7] shadow-lift"
+            className="block h-auto w-[min(100%,900px)] rounded-sm bg-line shadow-lift"
           />
         </div>
       </StageColumn>

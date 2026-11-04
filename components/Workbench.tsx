@@ -111,19 +111,19 @@ export function Workbench() {
     <Tabs
       value={mode}
       onValueChange={(next) => setMode(next as Mode)}
-      className="flex h-dvh w-full flex-col overflow-hidden bg-canvas bg-[radial-gradient(circle_at_75%_-18%,#e6f5ed_0,transparent_38%)]"
+      className="flex h-dvh w-full flex-col overflow-hidden bg-canvas"
     >
       <header
         className={cn(
-          'relative z-10 flex items-center border-b border-line-strong/80 bg-paper/85 backdrop-blur-xl',
-          'min-h-19 gap-[clamp(16px,4vw,54px)] px-[clamp(16px,3vw,42px)] py-3',
+          'relative z-10 flex items-center border-b border-line bg-paper',
+          'min-h-20 gap-[clamp(18px,4vw,56px)] px-[clamp(20px,3vw,42px)] py-3.5',
           'max-[768px]:min-h-15.5 max-[768px]:gap-2.5 max-[768px]:px-3 max-[768px]:py-2',
         )}
       >
         <div className="inline-flex min-w-max items-center gap-2.75">
           <span
             aria-hidden="true"
-            className="grid size-9.5 place-items-center rounded-md bg-ink font-serif text-lg leading-none text-white shadow-[0_5px_12px_rgba(24,34,29,0.16)] max-[768px]:size-8.5 max-[768px]:text-base"
+            className="grid size-10 place-items-center rounded-xl bg-ink font-serif text-lg leading-none text-white shadow-lg shadow-ink/18 max-[768px]:size-8.5 max-[768px]:text-base"
           >
             页
           </span>
@@ -131,8 +131,8 @@ export function Workbench() {
             <span className="text-[15px] font-bold tracking-tight text-ink max-[768px]:text-sm">
               纸页工作台
             </span>
-            <span className="text-[10px] tracking-[0.04em] text-muted max-[768px]:hidden">
-              PDF → 公众号内容
+            <span className="text-[10px] font-medium tracking-[0.04em] text-muted max-[768px]:hidden">
+              本地编辑 · PDF → 公众号内容
             </span>
           </span>
         </div>
@@ -163,7 +163,7 @@ export function Workbench() {
           >
             <Menu aria-hidden="true" className="size-4.5" />
           </Button>
-          <div className="flex items-center gap-1 max-[768px]:hidden">
+          <div className="flex items-center gap-1 rounded-lg border border-line bg-panel p-1 max-[768px]:hidden">
             <Button
               variant="ghost"
               size="icon"

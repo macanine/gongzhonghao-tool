@@ -43,5 +43,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ```bash
 npm test && npm run typecheck && npm run build
-node tools/screenshot.mjs /tmp/gz-shots   # 六个界面：三个工作区 + 手机端 + 手机菜单 + 确认弹窗
+node tools/screenshot.mjs /tmp/gz-shots   # 七个界面：三个工作区 + 手机端 + 手机菜单 + 确认弹窗 + 写了内容的编辑器
 ```

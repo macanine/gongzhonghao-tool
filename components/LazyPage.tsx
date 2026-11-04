@@ -24,6 +24,7 @@ interface LazyPageProps {
  * 不需要一个全局的队列管理器。
  *
  * 外面套 memo：面板里改水印以外的东西时，几十个页面不必跟着重渲染。
+ * 水印由外层防抖后再传进来，拖滑块时不会每一帧都排一次重绘。
  */
 export const LazyPage = memo(function LazyPage({
   doc,
@@ -35,6 +36,7 @@ export const LazyPage = memo(function LazyPage({
   const [visible, setVisible] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
   const [url, setUrl] = useState<string | null>(null);
+  const urlRef = useRef<string | null>(null);
 
   useEffect(() => {
     const node = hostRef.current;
@@ -56,22 +58,24 @@ export const LazyPage = memo(function LazyPage({
     if (!visible) return;
     let alive = true;
     setStatus('loading');
+    // 排队期间参数又变了（或这页被删了）就直接跳过，不渲染一张注定被丢掉的图。
     serialize(() =>
-      renderPage(doc, pageNumber, {
-        purpose: 'preview',
-        scale: 1,
-        format: 'jpeg',
-        quality: 82,
-        watermark,
-      }),
+      alive
+        ? renderPage(doc, pageNumber, {
+            purpose: 'preview',
+            scale: 1,
+            format: 'jpeg',
+            quality: 82,
+            watermark,
+          })
+        : Promise.resolve(null),
     )
       .then((result) => {
-        if (!alive) return;
+        if (!alive || !result) return;
         const objectUrl = URL.createObjectURL(result.blob);
-        setUrl((previous) => {
-          if (previous) URL.revokeObjectURL(previous);
-          return objectUrl;
-        });
+        if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+        urlRef.current = objectUrl;
+        setUrl(objectUrl);
         setStatus('ready');
       })
       .catch((error) => {
@@ -86,10 +90,8 @@ export const LazyPage = memo(function LazyPage({
 
   useEffect(
     () => () => {
-      setUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
-        return null;
-      });
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      urlRef.current = null;
     },
     [],
   );
@@ -97,7 +99,7 @@ export const LazyPage = memo(function LazyPage({
   return (
     <div
       ref={hostRef}
-      className="aspect-box mb-4 rounded-[2px] bg-[#f3f6f3] last:mb-0"
+      className="aspect-box rounded-[2px] bg-panel"
       style={{ '--page-aspect': `${Math.max(0.2, aspect) * 100}%` } as CSSProperties}
     >
       {url ? (
@@ -117,7 +119,7 @@ export const LazyPage = memo(function LazyPage({
         <p
           className={cn(
             'absolute inset-0 grid animate-shimmer place-items-center',
-            'bg-[linear-gradient(110deg,#f3f6f3_35%,#f8fbf8_50%,#f3f6f3_65%)] bg-[length:200%_100%]',
+            'bg-[linear-gradient(110deg,var(--color-panel)_35%,var(--color-paper)_50%,var(--color-panel)_65%)] bg-[length:200%_100%]',
             'text-[11px] tracking-[0.04em] text-faint',
           )}
         >

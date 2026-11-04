@@ -1,14 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Copy, Download, Trash2, Upload, X } from 'lucide-react';
-import { isPdf, loadPdf, type DocRecord } from '@/lib/article/pdf';
-import { buildArticleHtml, buildZip, copyHtml, renderHeaderBlob } from '@/lib/article/export';
+import { Copy, Download, Trash2, Upload } from 'lucide-react';
+import { describeBlocks } from '@/lib/article/blocks';
+import { buildArticleHtml, buildZip, copyArticle, renderHeaderBlob } from '@/lib/article/export';
 import { runJob, toast } from '@/lib/feedback';
 import { ARTICLE_WIDTH, ratioOf, type WatermarkSettings } from '@/lib/settings';
-import { patchSettings, setPageCount, useStore } from '@/lib/store';
+import { getState, patchSettings, useStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { LazyPage } from './LazyPage';
+import { ArticleEditor } from './ArticleEditor';
+import { ArticleOutline } from './ArticleOutline';
+import { useArticle } from './useArticle';
 import {
   Button,
   Card,
@@ -30,153 +32,73 @@ import {
   confirm,
 } from './ui';
 
-interface PageRecord {
-  id: string;
-  docId: string;
-  name: string;
-  pageNumber: number;
-  aspect: number;
-}
-
-let seed = 0;
-const nextId = () => `page-${(seed += 1)}`;
-
 export function ArticlePanel() {
-  // 整份设置都要用（复制 / 打包），所以这里订阅它；背景图另取，避免和页数、
-  // 头图设置互相牵动。
-  const settings = useStore((state) => state.settings);
-  const headerImage = useStore((state) => state.images.header);
-  const { watermark, output, header } = settings.article;
-  const [pages, setPages] = useState<PageRecord[]>([]);
-  const docs = useRef(new Map<string, DocRecord>());
-  const [dragging, setDragging] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  // 只订阅正文相关的设置：封面那边改字不会让这里跟着重渲染。
+  // 导出时要用整份设置，到点击那一刻再从 store 里取。
+  const { watermark, output, header } = useStore((state) => state.settings.article);
+  const headerStyle = useStore((state) => state.settings.header);
+  const article = useArticle();
+  const { blocks, docs, importFiles, clear } = article;
   const [draggingOver, setDraggingOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const pickPdf = useCallback(() => fileInput.current?.click(), []);
 
-  useEffect(() => setPageCount(pages.length), [pages.length]);
-  useEffect(
-    () => () => {
-      docs.current.forEach((doc) => doc.release().catch(() => undefined));
-      docs.current.clear();
-    },
-    [],
-  );
+  // 拖滑块时水印每帧都在变；预览停手后再重画，导出始终用最新值。
+  const previewWatermark = useDebounced(watermark, 240);
+  const summary = describeBlocks(blocks);
+  const pageCount = blocks.filter((block) => block.kind === 'page').length;
 
-  const importFiles = useCallback(async (fileList: FileList | null) => {
-    const selected = Array.from(fileList ?? []);
-    const files = selected.filter(isPdf);
-    if (!files.length) {
-      toast('请选择 PDF 文件', true);
-      return;
-    }
-    await runJob('正在导入 PDF', async (detail) => {
-      let added = 0;
-      for (const file of files) {
-        detail(`读取 ${file.name}`);
-        const { pdf, release } = await loadPdf(file);
-        const docId = `doc-${(seed += 1)}`;
-        docs.current.set(docId, { pdf, release });
-        const records: PageRecord[] = [];
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-          detail(`${file.name} · 第 ${pageNumber}/${pdf.numPages} 页`);
-          const page = await pdf.getPage(pageNumber);
-          const viewport = page.getViewport({ scale: 1 });
-          page.cleanup();
-          records.push({
-            id: nextId(),
-            docId,
-            name: file.name,
-            pageNumber,
-            aspect: viewport.height / viewport.width,
-          });
-        }
-        setPages((previous) => [...previous, ...records]);
-        added += records.length;
-      }
-      const ignored = selected.length - files.length;
-      toast(`已导入 ${added} 页 PDF${ignored ? `，已忽略 ${ignored} 个非 PDF 文件` : ''}`);
-    });
-  }, []);
-
-  const clearPages = useCallback(async () => {
-    if (!pages.length) return;
+  const clearAll = useCallback(async () => {
+    if (!blocks.length) return;
     const confirmed = await confirm(
-      `清空当前 ${pages.length} 页 PDF？此操作不会影响已保存的配置。`,
+      `清空正文里的 ${summary || '空白内容'}？此操作不会影响已保存的配置。`,
       '清空',
     );
-    if (!confirmed) return;
-    docs.current.forEach((doc) => doc.release().catch(() => undefined));
-    docs.current.clear();
-    setPages([]);
-  }, [pages.length]);
+    if (confirmed) clear();
+  }, [blocks.length, summary, clear]);
 
-  const movePage = useCallback((fromId: string, targetId: string, before: boolean) => {
-    setPages((previous) => {
-      const from = previous.findIndex((page) => page.id === fromId);
-      const target = previous.findIndex((page) => page.id === targetId);
-      if (from < 0 || target < 0 || from === target) return previous;
-      const next = [...previous];
-      const [record] = next.splice(from, 1);
-      let insertAt = target;
-      if (from < target) insertAt -= 1;
-      if (!before) insertAt += 1;
-      next.splice(insertAt, 0, record!);
-      return next;
-    });
-  }, []);
+  const exportOptions = () => {
+    const state = getState();
+    return {
+      blocks,
+      docs: docs.current,
+      settings: state.settings,
+      headerInput: {
+        style: state.settings.header,
+        content: state.settings.article.header,
+        pageCount,
+        image: state.images.header,
+      },
+    };
+  };
 
-  const snapshot = useCallback(
-    () => pages.map(({ docId, pageNumber, name }) => ({ docId, pageNumber, name })),
-    [pages],
-  );
-
-  const headerInput = useCallback(
-    () => ({
-      style: settings.header,
-      content: header,
-      pageCount: pages.length,
-      image: headerImage,
-    }),
-    [settings.header, header, pages.length, headerImage],
-  );
-
-  const copyAll = useCallback(() => {
-    if (!pages.length) {
-      toast('请先导入 PDF', true);
+  const copyAll = () => {
+    if (!blocks.length) {
+      toast('正文还是空的，先导入 PDF 或写点文字', true);
       return;
     }
     void runJob('正在准备公众号内容', async (detail) => {
-      const html = buildArticleHtml({
-        snapshot: snapshot(),
-        docs: docs.current,
-        settings,
-        headerInput: headerInput(),
-        onProgress: detail,
-      });
-      await copyHtml(html, pages.length);
-      toast(`已复制 ${pages.length} 页图片`);
+      const options = exportOptions();
+      await copyArticle(buildArticleHtml({ ...options, onProgress: detail }), options.blocks);
+      toast(`已复制：${summary}`);
     });
-  }, [pages.length, settings, snapshot, headerInput]);
+  };
 
-  const downloadZip = useCallback(() => {
-    if (!pages.length) {
-      toast('请先导入 PDF', true);
+  const downloadZip = () => {
+    if (!pageCount && !blocks.some((block) => block.kind === 'image')) {
+      toast('没有可打包的图片，先导入 PDF 或插图', true);
       return;
     }
     void runJob('正在打包高清图片', async (detail) => {
       await buildZip({
-        snapshot: snapshot(),
-        docs: docs.current,
-        settings,
-        headerInput: headerInput(),
+        ...exportOptions(),
         extension: output.format === 'jpeg' ? 'jpg' : 'png',
         includeHeader: header.enabled,
         onProgress: detail,
       });
-      toast(`已下载 ${pages.length} 张图片`);
+      toast('图片包已下载');
     });
-  }, [pages.length, settings, snapshot, headerInput, output.format, header.enabled]);
+  };
 
   const headerPreviewUrl = useHeaderPreview(header.enabled);
 
@@ -184,10 +106,10 @@ export function ArticlePanel() {
     <>
       <Rail>
         <Section>
-          <SectionHeading trailing={<CountBadge>{pages.length}</CountBadge>}>PDF 页面</SectionHeading>
+          <SectionHeading trailing={<CountBadge>{blocks.length}</CountBadge>}>正文内容</SectionHeading>
           <Button
             variant="secondary"
-            onClick={() => fileInput.current?.click()}
+            onClick={pickPdf}
             onDragOver={(event) => {
               event.preventDefault();
               setDraggingOver(true);
@@ -199,8 +121,8 @@ export function ArticlePanel() {
               void importFiles(event.dataTransfer.files);
             }}
             className={cn(
-              'grid w-full justify-items-center gap-1.5 rounded-md border border-dashed px-3.5 py-5',
-              'bg-gradient-to-b from-paper to-accent-wash',
+              'grid w-full justify-items-center gap-1 rounded-md border border-dashed px-3.5 py-4.5',
+              'bg-accent-wash/60',
               'transition-[border-color,background-color,transform,box-shadow] duration-150',
               draggingOver
                 ? '-translate-y-px border-accent bg-accent-soft shadow-card'
@@ -209,11 +131,12 @@ export function ArticlePanel() {
           >
             <Upload aria-hidden="true" className="size-5 text-accent" />
             <span className="text-[13px] font-semibold">导入 PDF</span>
+            <span className="text-[10px] font-normal text-muted">也可拖入 PDF 或图片</span>
           </Button>
           <input
             ref={fileInput}
             type="file"
-            accept="application/pdf,.pdf"
+            accept="application/pdf,.pdf,image/*"
             multiple
             hidden
             onChange={(event) => {
@@ -221,102 +144,28 @@ export function ArticlePanel() {
               event.target.value = '';
             }}
           />
-
-          <div className="mt-3 grid gap-1.5">
-            {pages.map((page, index) => (
-              <div
-                key={page.id}
-                draggable
-                onDragStart={() => setDragging(page.id)}
-                onDragEnd={() => {
-                  setDragging(null);
-                  setDropTarget(null);
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  if (dragging && dragging !== page.id) {
-                    event.dataTransfer.dropEffect = 'move';
-                    setDropTarget(page.id);
-                  }
-                }}
-                onDragLeave={() => setDropTarget((current) => (current === page.id ? null : current))}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  if (dragging && dragging !== page.id) {
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    movePage(dragging, page.id, event.clientY < rect.top + rect.height / 2);
-                  }
-                  setDragging(null);
-                  setDropTarget(null);
-                }}
-                className={cn(
-                  'grid grid-cols-[10px_38px_minmax(0,1fr)_30px] items-center gap-2 rounded-md border p-1.75',
-                  'transition-[background-color,border-color,opacity] duration-150',
-                  dragging === page.id
-                    ? 'border-transparent opacity-40'
-                    : dropTarget === page.id
-                      ? 'border-accent bg-accent-soft'
-                      : 'border-transparent hover:border-line hover:bg-panel',
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className="rotate-90 text-base tracking-[-2px] text-faint select-none"
-                >
-                  ···
-                </span>
-                <span className="grid h-12 w-9.5 place-items-center rounded-xs border border-line bg-[#edf2ee] text-[10px] font-bold text-muted">
-                  {page.pageNumber}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[11px] font-semibold text-ink" title={page.name}>
-                    {page.name}
-                  </span>
-                  <span className="mt-0.5 block text-[10px] text-faint">
-                    第 {page.pageNumber} 页 · {index + 1}
-                  </span>
-                </span>
-                <Button
-                  variant="ghost"
-                  size="iconSm"
-                  title="删除此页"
-                  aria-label="删除此页"
-                  className="hover:bg-danger-soft hover:text-danger"
-                  onClick={() =>
-                    setPages((previous) => previous.filter((item) => item.id !== page.id))
-                  }
-                >
-                  <X aria-hidden="true" className="size-3.5" />
-                </Button>
-              </div>
-            ))}
-            {pages.length === 0 ? (
-              <p className="py-5 text-center text-[11px] text-faint">
-                暂无页面 · 导入 PDF 后开始排版
-              </p>
-            ) : null}
-          </div>
+          <ArticleOutline blocks={blocks} onMove={article.move} onRemove={article.remove} />
         </Section>
 
         <WatermarkSection watermark={watermark} />
-        <OutputSection output={output} onClear={clearPages} disabled={!pages.length} />
+        <OutputSection output={output} onClear={clearAll} disabled={!blocks.length} />
       </Rail>
 
       <StageColumn
         eyebrow="公众号内容"
-        title="HTML 预览"
-        statusState={pages.length ? 'ready' : 'idle'}
-        status={pages.length ? `${pages.length} 页已就绪` : '等待 PDF'}
+        title="正文编辑"
+        statusState={blocks.length ? 'ready' : 'idle'}
+        status={summary || '等待内容'}
       >
-        <div
-          data-scroll="preview"
-          className="scrollbar-slim min-h-0 flex-1 overflow-y-auto overscroll-contain px-[clamp(10px,5vw,76px)] pt-[clamp(18px,4vw,48px)] pb-17.5 max-[768px]:px-2 max-[768px]:pt-3.5 max-[768px]:pb-10.5"
-        >
-          <article className="mx-auto min-h-86 w-[min(100%,677px)] rounded-[3px] border border-line-strong/70 bg-paper p-[clamp(14px,2.5vw,28px)] shadow-card max-[768px]:rounded-[2px] max-[768px]:p-3">
-            {header.enabled && headerPreviewUrl ? (
+        <ArticleEditor
+          article={article}
+          watermark={previewWatermark}
+          onPickPdf={pickPdf}
+          header={
+            header.enabled && headerPreviewUrl ? (
               <div
-                className="aspect-box mb-5 rounded-[2px] bg-[#eceee9]"
-                style={{ '--page-aspect': `${100 / ratioOf(settings.header)}%` } as CSSProperties}
+                className="aspect-box rounded-[2px] bg-panel"
+                style={{ '--page-aspect': `${100 / ratioOf(headerStyle)}%` } as CSSProperties}
               >
                 <img
                   src={headerPreviewUrl}
@@ -324,31 +173,9 @@ export function ArticlePanel() {
                   className="absolute inset-0 size-full object-fill"
                 />
               </div>
-            ) : null}
-            {pages.length === 0 ? (
-              <div className="grid min-h-80 place-content-center justify-items-center gap-3.5 text-center text-faint">
-                <div className="grid h-16.5 w-13.5 place-items-center rounded-md border border-[#b9dbc7] bg-accent-wash text-[11px] font-bold tracking-[0.08em] text-accent-strong">
-                  PDF
-                </div>
-                <p className="text-[13px]">导入手写 PDF 后在这里预览</p>
-              </div>
-            ) : (
-              pages.map((page) => {
-                const doc = docs.current.get(page.docId);
-                if (!doc) return null;
-                return (
-                  <LazyPage
-                    key={page.id}
-                    doc={doc.pdf}
-                    pageNumber={page.pageNumber}
-                    aspect={page.aspect}
-                    watermark={watermark}
-                  />
-                );
-              })
-            )}
-          </article>
-        </div>
+            ) : null
+          }
+        />
       </StageColumn>
 
       <Rail side="right">
@@ -356,9 +183,9 @@ export function ArticlePanel() {
           <Eyebrow>发布</Eyebrow>
           <h2 className="mt-1 mb-2 text-lg font-bold tracking-tight text-ink">复制到公众号</h2>
           <p className="mb-4.5 text-xs leading-relaxed text-muted">
-            {pages.length
-              ? `${header.enabled ? '头图 + ' : ''}${pages.length} 页将按当前顺序转为高清图片。`
-              : '图片会以 HTML 富文本形式复制。'}
+            {blocks.length
+              ? `${header.enabled ? '头图 + ' : ''}${summary}，按当前顺序转为公众号富文本。`
+              : '图片和文字会以 HTML 富文本形式复制，直接粘贴进公众号编辑器。'}
           </p>
           <Button variant="primary" size="block" onClick={copyAll}>
             <Copy aria-hidden="true" className="size-4" />
@@ -372,9 +199,12 @@ export function ArticlePanel() {
         <div className="mt-6 px-1">
           <InfoRow label="头图" value={header.enabled ? '附在推文开头' : '已关闭'} />
           <InfoRow label="处理方式" value="仅本地" />
-          <InfoRow label="页面顺序" value="拖动调整" />
+          <InfoRow label="添加内容" value="悬停块间插入" />
           <InfoRow label="正文宽度" value={`${ARTICLE_WIDTH} px`} />
         </div>
+        <p className="mt-4 px-1 text-[11px] leading-relaxed text-faint">
+          正文只保存在当前页面，刷新前记得复制或下载。
+        </p>
       </Rail>
     </>
   );
@@ -490,7 +320,7 @@ function OutputSection({
         onClick={onClear}
       >
         <Trash2 aria-hidden="true" className="size-3.5" />
-        清空全部页面
+        清空正文
       </Button>
     </Section>
   );
@@ -531,4 +361,14 @@ function useHeaderPreview(enabled: boolean): string | null {
   }, [enabled, style, content, pageCount, image]);
 
   return url;
+}
+
+/** 值停止变化 delay 毫秒后才跟上，用来给预览重绘降频。 */
+function useDebounced<T>(value: T, delay: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return settled;
 }

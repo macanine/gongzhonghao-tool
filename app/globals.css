@@ -8,28 +8,28 @@
 
 @theme {
   /* 墨色与纸面 */
-  --color-ink: #16211c;
-  --color-ink-soft: #33413a;
-  --color-muted: #6b7a72;
-  --color-faint: #98a59d;
+  --color-ink: #172235;
+  --color-ink-soft: #3f4c60;
+  --color-muted: #708096;
+  --color-faint: #9ba8b8;
 
-  --color-line: #e2eae4;
-  --color-line-strong: #c9d6cc;
+  --color-line: #e7ebf1;
+  --color-line-strong: #d2d9e4;
 
-  --color-canvas: #f1f6f2;
+  --color-canvas: #f4f6fa;
   --color-paper: #ffffff;
-  --color-panel: #f7faf8;
+  --color-panel: #f8f9fc;
 
-  /* 强调色：纸页工作台的绿 */
-  --color-accent: #167653;
-  --color-accent-strong: #0c5c40;
-  --color-accent-soft: #e3f3ea;
-  --color-accent-wash: #f2faf6;
+  /* 强调色：清晰、明亮、适合长时间编辑 */
+  --color-accent: #2f6fed;
+  --color-accent-strong: #1f55c7;
+  --color-accent-soft: #e8f0ff;
+  --color-accent-wash: #f3f7ff;
 
-  --color-danger: #b5483f;
-  --color-danger-soft: #fdf2f1;
-  --color-danger-line: #eccac6;
-  --color-warn: #c07d1c;
+  --color-danger: #c34d5a;
+  --color-danger-soft: #fff1f3;
+  --color-danger-line: #f0cbd1;
+  --color-warn: #c88420;
 
   /* 圆角 */
   --radius-xs: 6px;
@@ -44,9 +44,9 @@
   --font-serif: 'Songti SC', 'STSong', 'SimSun', serif;
 
   /* 阴影：一层贴边 + 一层扩散，比单层大阴影更干净 */
-  --shadow-card: 0 1px 2px rgba(22, 33, 28, 0.04), 0 10px 30px -18px rgba(22, 33, 28, 0.18);
-  --shadow-lift: 0 1px 2px rgba(22, 33, 28, 0.05), 0 26px 60px -28px rgba(22, 33, 28, 0.3);
-  --shadow-glow: 0 8px 20px -10px rgba(22, 118, 83, 0.5);
+  --shadow-card: 0 1px 2px rgba(31, 48, 77, 0.04), 0 12px 30px -20px rgba(31, 48, 77, 0.2);
+  --shadow-lift: 0 2px 4px rgba(31, 48, 77, 0.06), 0 28px 70px -32px rgba(31, 48, 77, 0.28);
+  --shadow-glow: 0 8px 22px -10px rgba(47, 111, 237, 0.42);
 
   /* 动画 */
   --animate-blink: blink 1s ease-in-out infinite;
@@ -111,6 +111,17 @@
   :focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--color-line-strong);
+    background-clip: padding-box;
   }
 }
 

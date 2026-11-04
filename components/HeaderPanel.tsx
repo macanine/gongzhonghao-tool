@@ -143,7 +143,7 @@ export function HeaderPanel() {
             ref={canvasRef}
             width={size.width}
             height={size.height}
-            className="block h-auto max-h-[calc(100dvh-220px)] w-auto max-w-[min(100%,720px)] rounded-sm bg-[#e9ece7] shadow-lift max-[768px]:max-h-none"
+            className="block h-auto max-h-[calc(100dvh-220px)] w-auto max-w-[min(100%,720px)] rounded-sm bg-line shadow-lift max-[768px]:max-h-none"
           />
         </div>
       </StageColumn>

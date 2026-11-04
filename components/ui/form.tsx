@@ -9,7 +9,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 const controlBase = [
-  'w-full min-w-0 rounded-sm border border-line-strong bg-paper px-3 py-2.5 text-[13px] text-ink',
+  'w-full min-w-0 rounded-md border border-line-strong/90 bg-paper px-3 py-2.5 text-[13px] text-ink shadow-xs shadow-ink/2',
   'placeholder:text-faint transition-[border-color,box-shadow,background-color] duration-150',
   'hover:border-faint',
   'focus:border-accent focus:ring-4 focus:ring-accent/15 focus:outline-none',
@@ -34,8 +34,8 @@ export function Field({
 }) {
   const Tag = as === 'div' ? 'div' : 'label';
   return (
-    <Tag className={cn('mb-3.5 flex min-w-0 flex-col gap-2', className)}>
-      <span className="flex items-baseline justify-between gap-2 text-[11px] font-medium text-muted">
+    <Tag className={cn('mb-4 flex min-w-0 flex-col gap-2', className)}>
+      <span className="flex items-baseline justify-between gap-2 text-[11px] font-semibold text-ink-soft">
         <span>{label}</span>
         {hint}
       </span>

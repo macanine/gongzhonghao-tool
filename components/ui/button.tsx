@@ -16,16 +16,16 @@ const buttonStyles = cva(
       variant: {
         primary:
           'border border-accent bg-accent text-white shadow-glow hover:border-accent-strong hover:bg-accent-strong',
-        secondary: 'border border-line-strong bg-paper text-ink hover:border-faint hover:bg-panel',
-        ghost: 'border border-transparent text-muted hover:border-line hover:bg-panel hover:text-ink',
-        bare: 'text-muted hover:text-ink',
-        danger: 'text-muted hover:text-danger',
+        secondary: 'border border-line-strong bg-paper text-ink shadow-xs shadow-ink/3 hover:border-accent/45 hover:bg-accent-wash',
+        ghost: 'border border-transparent text-muted hover:border-line hover:bg-paper hover:text-ink',
+        bare: 'text-muted hover:text-accent-strong',
+        danger: 'text-muted hover:bg-danger-soft hover:text-danger',
       },
       size: {
-        md: 'min-h-11 rounded-md px-3.5 text-[13px]',
+        md: 'min-h-10.5 rounded-md px-3.5 text-[13px]',
         sm: 'min-h-8 rounded-sm px-2.5 text-xs',
         block: 'min-h-11 w-full rounded-md px-4 text-[13px]',
-        icon: 'size-9.5 rounded-sm',
+        icon: 'size-9.5 rounded-md',
         iconSm: 'size-7.5 rounded-sm',
       },
     },

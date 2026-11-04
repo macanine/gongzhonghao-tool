@@ -1,5 +1,5 @@
 /*
- * 用本机缓存的 chrome-headless-shell 给三个标签页各截一张图。
+ * 用本机缓存的 chrome-headless-shell 给各个界面截图（三个工作区、手机端、弹窗、编辑器）。
  *
  * 不依赖 playwright：Node 22 自带 WebSocket，直接讲 DevTools 协议，
  * 顺带启动本地 Next.js 生产服务器。
@@ -174,8 +174,9 @@ async function shoot(name, { tab, scrollTop = 0, viewport = DESKTOP, action } = 
     await sleep(250);
   }
   if (action) {
-    const { result } = await send('Runtime.evaluate', { expression: action });
+    const { result } = await send('Runtime.evaluate', { expression: action, awaitPromise: true });
     if (result?.value === false) throw new Error(`${name}：操作未命中目标元素`);
+    if (process.env.DEBUG_SHOTS) console.log(name, JSON.stringify(result));
     await sleep(500);
   }
 
@@ -183,6 +184,39 @@ async function shoot(name, { tab, scrollTop = 0, viewport = DESKTOP, action } = 
   await writeFile(join(TARGET, `${name}.png`), Buffer.from(data, 'base64'));
   console.log(`  ✓ ${name}.png`);
 }
+
+/**
+ * 在正文编辑器里写几块内容：先点空状态的「写一段文字」，再用末尾插入条加小标题、
+ * 提示和分隔线。textarea 是受控组件，要走原生 setter 再派发 input 才能让 React 收到。
+ */
+const fillEditor = `(async () => {
+  const wait = () => new Promise((resolve) => setTimeout(resolve, 80));
+  const click = (el) => { if (!el) throw new Error('missing'); el.click(); };
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+  const type = (value) => {
+    const areas = document.querySelectorAll('[data-block-id] textarea');
+    const area = areas[areas.length - 1];
+    setter.call(area, value);
+    area.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  const insert = (label) =>
+    click([...document.querySelectorAll('button')].filter((b) => b.title === '插入' + label).at(-1));
+  try {
+    click([...document.querySelectorAll('button')].find((b) => b.textContent.includes('写一段文字')));
+    await wait();
+    type('本卷覆盖第一至第三单元，建议限时 90 分钟完成。\n答案与解析放在文末。');
+    await wait();
+    insert('小标题'); await wait(); type('一、选择题');
+    await wait();
+    insert('提示'); await wait(); type('需要完整电子版？评论区留言获取链接');
+    await wait();
+    insert('分隔线'); await wait();
+    document.activeElement?.blur();
+    return document.querySelectorAll('[data-block-id]').length > 0;
+  } catch (error) {
+    return String(error);
+  }
+})()`;
 
 console.log('截图输出到', TARGET);
 try {
@@ -195,6 +229,7 @@ try {
     action: press('[aria-label="打开更多操作"]'),
   });
   await shoot('06-confirm', { action: press('[aria-label="恢复默认配置"]') });
+  await shoot('07-editor', { action: fillEditor });
 } finally {
   socket.close();
   chrome.kill();
